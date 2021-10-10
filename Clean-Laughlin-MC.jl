@@ -104,7 +104,7 @@ mc_steps = 5000
 step_size = 0.1
 m = 3
 #rm = sqrt(2*m*particles)
-particles = 5
+particles = 4
 
 main_data = main(mc_steps,particles,m,step_size)
 
