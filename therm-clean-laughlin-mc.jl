@@ -1,4 +1,4 @@
-using HDF5, PyPlot
+using HDF5
 
 function start_rand_config(num_parts,m)
 	rm = sqrt(2*num_parts*m)
@@ -83,16 +83,33 @@ function main(steps,num_parts,m,step_size)
 	return acc_rate#,time_config_x,time_config_y
 end
 
-rates = fill(0.0,(3,8))
-particle_numbers = [1,2,3,4,5,6,7,8]
+println("Making Data File")
+
+saving_data = h5open("acc-rate-data-mk2.hdf5","w")
+create_group(saving_data,"metadata")
+metadata = saving_data["metadata"]
+metadata["mc_steps"] = 2000000
+metadata["step_size"] = 0.1
+metadata["description"] = "Calculate acceptance rate for a range of M values and particle numbers to figure out proper sampling frequency"
+create_group(saving_data,"all-data")
+alldata = saving_data["all-data"]
+
+println("File Structure Created; Starting Data Calculation")
+
+max_particles = 20
+rates = fill(0.0,(3,max_particles))
+particle_numbers = [i for i in 1:max_particles]
 for j in 1:3
-	for i in 1:8
-		rates[j,i] = main(1000000,i,j,0.1)
+	create_group(alldata,"m-$j")
+	m = alldata["m-$j"]
+	for i in 1:max_particles
+		rates[j,i] = main(2000000,i,j,0.1)
 		println("Done P=",i,", ","M=",j)
 	end
-	plot(particle_numbers,rates[j,:],label="M=$j")
+	m["data"] = rates[j,:]
 end
-legend()
+
+close(saving_data)
 
 
 
