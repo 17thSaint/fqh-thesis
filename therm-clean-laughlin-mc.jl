@@ -1,4 +1,4 @@
-import Pkg; Pkg.add("HDF5")
+#import Pkg; Pkg.add("HDF5")
 using HDF5
 
 function start_rand_config(num_parts,m)
@@ -97,7 +97,8 @@ function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data)
 	metadata["step_size"] = step_size
 	metadata["parts"] = particles
 	metadata["filling_factor"] = m
-	metadata["qhole_info"] = qhole
+	metadata["qhole_position"] = qhole[2]
+	metadata["qhole_count"] = qhole[1]
 	println("Metadata Added")
 	create_group(binary_file_pos,"all-data")
 	alldata = binary_file_pos["all-data"]
@@ -106,7 +107,7 @@ function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data)
 	println("Data Added, File Closed: $axis")
 end
 
-mcs = 2000000
+mcs = 200
 particles = 20
 step_size = 0.5
 quasihole = [1,[1.0,0.0]]
@@ -114,7 +115,6 @@ for i in 1:3
 	data_here = main(mcs,particles,i,step_size,quasihole)
 	write_pos_data_hdf5("x",mcs,particles,i,step_size,quasihole,data_here[2])
 	write_pos_data_hdf5("y",mcs,particles,i,step_size,quasihole,data_here[3])
-	end
 end
 
 
