@@ -107,7 +107,7 @@ function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data)
 	println("Data Added, File Closed: $axis")
 end
 
-mcs = 200
+mcs = 2000000
 particles = 20
 step_size = 0.5
 quasihole = [1,[1.0,0.0]]
