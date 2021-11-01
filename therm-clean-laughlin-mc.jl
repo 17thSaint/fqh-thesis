@@ -49,7 +49,7 @@ end
 
 function main(steps,num_parts,m,step_size,qhole)
 	running_config = start_rand_config(num_parts,m)
-	samp_freq = 1
+	samp_freq = 100
 	acc_rate = 0.0
 	therm_time = Int(0.1*steps)
 	collection_time = Int(steps*samp_freq*0.9)
@@ -88,9 +88,9 @@ function main(steps,num_parts,m,step_size,qhole)
 	return acc_rate,time_config_x,time_config_y
 end
 
-function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data)
+function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data,count)
 	println("Starting Data Write: $axis")
-	binary_file_pos = h5open("$axis-pos-mc-$mc_steps-p-$particles-m-$m-qhole.hdf5","w")
+	binary_file_pos = h5open("$axis-pos-mc-$mc_steps-p-$particles-m-$m-qhole-$count.hdf5","w")
 	create_group(binary_file_pos,"metadata")
 	metadata = binary_file_pos["metadata"]
 	metadata["mc_steps"] = mc_steps
@@ -110,11 +110,14 @@ end
 mcs = 2000000
 particles = 20
 step_size = 0.5
-quasihole = [1,[1.0,0.0]]
-for i in 1:3
+q_rad_count = 10
+i = 3
+rm = sqrt(2*particles*i)
+for j in 1:q_rad_count
+	quasihole = [1,[(j-1)*rm*1.5/q_rad_count,0]]
 	data_here = main(mcs,particles,i,step_size,quasihole)
-	write_pos_data_hdf5("x",mcs,particles,i,step_size,quasihole,data_here[2])
-	write_pos_data_hdf5("y",mcs,particles,i,step_size,quasihole,data_here[3])
+	write_pos_data_hdf5("x",mcs,particles,i,step_size,quasihole,data_here[2],j)
+	write_pos_data_hdf5("y",mcs,particles,i,step_size,quasihole,data_here[3],j)
 end
 
 
