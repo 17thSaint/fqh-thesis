@@ -50,15 +50,15 @@ end
 function main(steps,num_parts,m,step_size,qhole)
 	running_config = start_rand_config(num_parts,m)
 	samp_freq = 100
-	acc_rate = 0.0
+	#acc_rate = 0.0
 	therm_time = Int(0.1*steps)
-	collection_time = Int(steps*samp_freq*0.9)
+	collection_time = Int(steps*0.9)
 	time_config_x = fill(0.0,(num_parts,Int(0.9*steps)))
 	time_config_y = fill(0.0,(num_parts,Int(0.9*steps)))
 	index = 1
 	for i_therm in 1:therm_time
 		if i_therm%(therm_time*0.05) == 0
-			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
+			println("Thermalizing:"," ",100*i_therm/therm_time,"%, ",DateTime(now()))
 		end
 		for j_therm in 1:num_parts
 			movement = acc_rej_move(running_config,j_therm,num_parts,m,step_size,qhole)
@@ -68,24 +68,26 @@ function main(steps,num_parts,m,step_size,qhole)
 	println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
 		if i%(collection_time*0.05) == 0
-			println("Running:"," ",100*i/collection_time,"%")
+			println("Running:"," ",100*i/collection_time,"%, ",DateTime(now()))
 		end
+		#println("Calc New Config",DateTime(now()))
 		for j in 1:num_parts
 			movement = acc_rej_move(running_config,j,num_parts,m,step_size,qhole)
-			acc_rate += movement[2]/(collection_time*num_parts)
+			#acc_rate += movement[2]/(collection_time*num_parts)
 			running_config = movement[1]
 		end
-		
+		#println("Found New Config",DateTime(now()))
+		#println("Checking to add Data",DateTime(now()))
 		if i%samp_freq == 0
 			time_config_x[:,index] = [running_config[x][1] for x in 1:num_parts]
 			time_config_y[:,index] = [running_config[x][2] for x in 1:num_parts]
 			index += 1
 		end
-		
+		#println("Data Added",DateTime(now()))
 	end
 	
 
-	return acc_rate,time_config_x,time_config_y
+	return time_config_x,time_config_y#,acc_rate
 end
 
 function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data,count)
@@ -116,14 +118,14 @@ rm = sqrt(2*particles*i)
 for j in 1:q_rad_count
 	quasihole = [1,[(j-1)*rm*1.5/q_rad_count,0]]
 	data_here = main(mcs,particles,i,step_size,quasihole)
-	write_pos_data_hdf5("x",mcs,particles,i,step_size,quasihole,data_here[2],j)
-	write_pos_data_hdf5("y",mcs,particles,i,step_size,quasihole,data_here[3],j)
+	write_pos_data_hdf5("x",mcs,particles,i,step_size,quasihole,data_here[1],j)
+	write_pos_data_hdf5("y",mcs,particles,i,step_size,quasihole,data_here[2],j)
 end
 
+# 1 minute 15 sec = 1.25 1.25*1000= 1250/60= 20.83
 
 
-
-#=
+#=  Acceptance rate data collection
 println("Making Data File")
 
 saving_data = h5open("acc-rate-data-mk2.hdf5","w")
