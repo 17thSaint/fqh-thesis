@@ -9,7 +9,8 @@ function read_hdf5_data(num_parts,m,data_type,folder,version)
 	elseif folder == "qhole-data"
 		file = h5open("$data_type-pos-mc-2000000-p-$num_parts-m-$m-qhole-$version.hdf5","r")
 		qhole_data = read(file["metadata"],"qhole_position")
-		data = [read(file["all-data"],"deets"),qhole_data]
+		full_poses = read(file["all-data"],"deets")
+		data = [full_poses[:,1:Int(size(full_poses)[2]/100)],qhole_data]
 	else
 		println("Problem with Folder Name")
 	end
@@ -22,11 +23,12 @@ function dist_btw(part_1,part_2)
 	return sqrt((part_1[1] - part_2[1])^2 + (part_1[2] - part_2[2])^2)
 end
 
-function get_expval(particles,full_data_x,full_data_y,dtheta,rad,step)
+function get_expval(particles,full_data_x,full_data_y,dtheta,step) #for OG include rad
 	qhole_location = full_data_x[2][1] + im*full_data_x[2][2]
-	chord = 2*rad*sin(dtheta/2)*exp(im*0.5*(pi+dtheta))
-	qhole_shifted = qhole_location + chord
-	sliced_data = [full_data_x[1][:,Int(i*step)] + im.*full_data_y[1][:,Int(i*step)] for i in 1:Int(1800000/step)]
+	#chord = 2*rad*sin(dtheta/2)*exp(im*0.5*(pi+dtheta))
+	#qhole_shifted = qhole_location + chord
+	qhole_shifted = qhole_location*exp(im*dtheta)
+	sliced_data = [full_data_x[1][:,Int(i*step)] + im.*full_data_y[1][:,Int(i*step)] for i in 1:Int(size(full_data_x[1])[2]/step)]
 	exp_val = 0
 	distances = []
 	for j in 1:length(sliced_data)
@@ -51,19 +53,22 @@ function get_linear_fit(xdata,ydata)
 	return curve[1],curve[2]
 end
 
-function get_calc_berry(rad,xdata,ydata,steps,particles,m_final)
-	calc_vals = [ [[0.0 for k in 1:10] for j in 1:length(xdata[1])] for i in 1:m_final ]
-	thetas = [0.0 for i in 1:10]
+function get_calc_berry(xdata,ydata,steps,particles,m_final,theta_start=-0.01,theta_count=10)
+	calc_vals = [ [[0.0 for k in 1:theta_count] for j in 1:length(xdata[1])] for i in 1:m_final ]
+	theta_change=abs(2*theta_start)
+	thetas = [0.0 for i in 1:theta_count]
 	for k in 1:m_final
-		for i in 1:10
-			thet = -0.11 + (i-1)*0.2/10
+		for i in 1:theta_count
+			thet = theta_start + (i-1)*theta_change/theta_count
 			thetas[i] = thet
-			for j in 1:length(xdats[1])
-				rezz = get_expval(particles,xdata[k][j],ydata[k][j],thet,rad,steps)
+			for j in 1:length(xdata[1])
+				println("Calc Berry: I=$i, J=$j")
+				rezz = get_expval(particles,xdata[k][j],ydata[k][j],thet,steps)
 				calc_vals[k][j][i] = rezz[1]
 			end
 		end
 	end
+	println("Finished Berry Calc")
 	return calc_vals,thetas
 end
 
@@ -74,12 +79,15 @@ function get_phase_from_ideal_dtheta(xdata,ydata,berry_vals,thetas,m_final)
 	params_b = [[0.0 for i in 1:length(xdata[1])] for j in 1:3]
 	for l in 1:m_final
 		ideal = 0
-		for i in 1:length(xdata)
+		for i in 1:length(xdata[1])
+			println("Calc Phase, Set $i")
 			param = get_linear_fit(thetas,berry_vals[l][i])
 			params_a[l][i] = param[1]
 			params_b[l][i] = param[2]
 			for j in 1:i-1
-				ideal += (params_a[l][i]-params_a[l][j])/(params_b[l][j]-params_b[l][i])/choices
+				local_ideal = (params_a[l][i]-params_a[l][j])/(params_b[l][j]-params_b[l][i])
+				println("I=$i, J=$j, Ideal=$local_ideal")
+				ideal += local_ideal/choices
 			end
 		end
 		append!(ideal_thets,[ideal])
@@ -89,6 +97,37 @@ function get_phase_from_ideal_dtheta(xdata,ydata,berry_vals,thetas,m_final)
 	return phase,ideal_thets,params_a,params_b
 end
 
+particles = 20
+steps = 1
+m = 3
+q_rad_count = 10
+#xdats = [[read_hdf5_data(particles,m,"x","qhole-data",i) for i in 2:q_rad_count]]
+#ydats = [[read_hdf5_data(particles,m,"y","qhole-data",i) for i in 2:q_rad_count]]
+println("Read Data")
+#th_vals = [-(xdats[1][i][2][1]^2)/(4*m) for i in 1:9]
+#berries = get_calc_berry(xdats,ydats,steps,particles,1,-0.01,20)
+for i in 1:20
+	theta = -0.01 + (i-1)*0.02/20
+	plot([xdats[1][j][2][1]/sqrt(2*particles*m) for j in 1:9],[berries[1][1][j][i] for j in 1:9],label="$theta")
+	#plot(berries[2],berries[1][1][i])
+	#plot([th_vals[i] for j in 1:10])
+end
+#phase_dats = get_phase_from_ideal_dtheta(xdats,ydats,berries[1],berries[2],1)
+#plot(phase_dats[1][1])
+#phase_data = get_phase_from_ideal_dtheta(xdats,ydats,berries[1],berries[2],3)
+#plot(1:3,phase_data[1])
+#plot(1:3,th_vals,label="Theory")
+#legend()
+
+
+
+
+
+# no distances less than 0.1 with 1000 steps for all data sets and all m's
+# take time autocorrelation function from ModSim to see if 1000 is good, might be the issue
+
+
+#=  OG running for local rotation of qhole
 particles = 20
 steps = 1000
 rad = 0.001
@@ -101,16 +140,7 @@ phase_data = get_phase_from_ideal_dtheta(xdats,ydats,berries[1],berries[2],3)
 plot(1:3,phase_data[1])
 plot(1:3,th_vals,label="Theory")
 legend()
-
-
-
-
-
-
-# no distances less than 0.1 with 1000 steps for all data sets and all m's
-# take time autocorrelation function from ModSim to see if 1000 is good, might be the issue
-
-
+=#
 
 
 
