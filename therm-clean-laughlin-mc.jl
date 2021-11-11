@@ -53,8 +53,8 @@ function main(steps,num_parts,m,step_size,qhole)
 	#acc_rate = 0.0
 	therm_time = Int(0.1*steps)
 	collection_time = Int(steps*0.9)
-	time_config_x = fill(0.0,(num_parts,Int(0.9*steps)))
-	time_config_y = fill(0.0,(num_parts,Int(0.9*steps)))
+	time_config_x = fill(0.0,(num_parts,Int(0.9*steps/samp_freq)))
+	time_config_y = fill(0.0,(num_parts,Int(0.9*steps/samp_freq)))
 	index = 1
 	for i_therm in 1:therm_time
 		if i_therm%(therm_time*0.05) == 0
