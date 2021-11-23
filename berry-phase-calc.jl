@@ -45,7 +45,8 @@ function get_expval(particles,full_data_x,full_data_y,dtheta,step) #for OG inclu
 		end
 		exp_val += exp_val_step/length(sliced_data)
 	end
-	return imag(exp_val),real(exp_val)
+	change_qhole = abs(qhole_location - qhole_shifted)
+	return imag(exp_val)/dtheta
 end
 
 function get_linear_fit(xdata,ydata)
@@ -53,7 +54,7 @@ function get_linear_fit(xdata,ydata)
 	return curve[1],curve[2]
 end
 
-function get_calc_berry(xdata,ydata,steps,particles,m_final,theta_start=-0.01,theta_count=10)
+function get_calc_almost_berry(xdata,ydata,steps,particles,m_final,theta_start=-0.01,theta_count=1)
 	calc_vals = [ [[0.0 for k in 1:theta_count] for j in 1:length(xdata[1])] for i in 1:m_final ]
 	theta_change=abs(2*theta_start)
 	thetas = [0.0 for i in 1:theta_count]
@@ -101,17 +102,45 @@ particles = 20
 steps = 1
 m = 3
 q_rad_count = 10
-#xdats = [[read_hdf5_data(particles,m,"x","qhole-data",i) for i in 2:q_rad_count]]
-#ydats = [[read_hdf5_data(particles,m,"y","qhole-data",i) for i in 2:q_rad_count]]
+#xdats = [[read_hdf5_data(particles,m,"x","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+2,"x","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+4,"x","qhole-data",i) for i in 2:q_rad_count]]
+#ydats = [[read_hdf5_data(particles,m,"y","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+2,"y","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+4,"y","qhole-data",i) for i in 2:q_rad_count]]
 println("Read Data")
 #th_vals = [-(xdats[1][i][2][1]^2)/(4*m) for i in 1:9]
-#berries = get_calc_berry(xdats,ydats,steps,particles,1,-0.01,20)
-for i in 1:20
-	theta = -0.01 + (i-1)*0.02/20
-	plot([xdats[1][j][2][1]/sqrt(2*particles*m) for j in 1:9],[berries[1][1][j][i] for j in 1:9],label="$theta")
+#berries = get_calc_almost_berry(xdats,ydats,steps,particles,3)
+#for i in 1:20
+	#theta = -0.01 + (i-1)*0.02/20
+	#plot([xdats[2][j][2][1]/sqrt(2*particles*5) for j in 1:9],[berries[1][2][j][i] for j in 1:9],label="$theta")
 	#plot(berries[2],berries[1][1][i])
 	#plot([th_vals[i] for j in 1:10])
+#end
+
+
+
+for sel in 1:3
+	fils = [3,5,7]
+	mmms = fils[sel]
+	radii = [0.0 for i in 1:9]
+	berry_phase = [0.0 for i in 1:9]
+	for j in 1:9
+		radii[j] = (xdats[sel][j][2][1])
+		berry_phase[j] = berries[1][sel][j][1]
+	end
+	plot(radii,berry_phase,"-p",label="M=$mmms")
+	#plot(radii,berry_phase./radii,"-p",label="M=$mmms")
+	#plot([xdats[sel][j][2][1] for j in 1:9],[-berries[1][sel][j][1] for j in 1:9],label="M=$mmms")
 end
+legend()
+
+for i in [3,5,7]
+	x = [j for j in 0:20]
+	plot(x,x.*x./(2 .*i),"k")
+end
+
+xlabel("Radius of Quasihole")
+ylabel("Almost Berry Phase")
+title("Berry Phase: Theory vs Simulation Calculated")
+
+
 #phase_dats = get_phase_from_ideal_dtheta(xdats,ydats,berries[1],berries[2],1)
 #plot(phase_dats[1][1])
 #phase_data = get_phase_from_ideal_dtheta(xdats,ydats,berries[1],berries[2],3)
