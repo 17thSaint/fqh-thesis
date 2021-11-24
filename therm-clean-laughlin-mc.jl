@@ -18,8 +18,8 @@ function prob_wavefunc(config, m, qhole)
 			dist = dist_btw(config[i],config[j]) 
 			full += -2*m*log( dist )
 		end
-		if qhole[1] > 0
-			full += -2*log( dist_btw(config[j],qhole[2]))
+		for k in 1:qhole[1]
+			full += -2*log( dist_btw(config[j],qhole[k+1]))
 		end
 		full += 0.5 * (config[j][1]^2 + config[j][2]^2)
 	end
@@ -58,7 +58,7 @@ function main(steps,num_parts,m,step_size,qhole)
 	index = 1
 	for i_therm in 1:therm_time
 		if i_therm%(therm_time*0.05) == 0
-			println("Thermalizing:"," ",100*i_therm/therm_time,"%, ",DateTime(now()))
+			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
 		end
 		for j_therm in 1:num_parts
 			movement = acc_rej_move(running_config,j_therm,num_parts,m,step_size,qhole)
@@ -68,7 +68,7 @@ function main(steps,num_parts,m,step_size,qhole)
 	println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
 		if i%(collection_time*0.05) == 0
-			println("Running:"," ",100*i/collection_time,"%, ",DateTime(now()))
+			println("Running:"," ",100*i/collection_time,"%")
 		end
 		#println("Calc New Config",DateTime(now()))
 		for j in 1:num_parts
@@ -90,16 +90,23 @@ function main(steps,num_parts,m,step_size,qhole)
 	return time_config_x,time_config_y#,acc_rate
 end
 
-function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data,count)
+function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data,count,q2loc=1)
 	println("Starting Data Write: $axis")
-	binary_file_pos = h5open("$axis-pos-mc-$mc_steps-p-$particles-m-$m-qhole-$count.hdf5","w")
+	qhole_count = qhole[1]
+	if qhole_count > 1
+		binary_file_pos = h5open("$axis-pos-mc-$mc_steps-p-$particles-m-$m-qhole-$qhole_count-q2loc-$q2loc-$count.hdf5","w")
+	else 
+		binary_file_pos = h5open("$axis-pos-mc-$mc_steps-p-$particles-m-$m-qhole-$count.hdf5","w")
+	end
 	create_group(binary_file_pos,"metadata")
 	metadata = binary_file_pos["metadata"]
 	metadata["mc_steps"] = mc_steps
 	metadata["step_size"] = step_size
 	metadata["parts"] = particles
 	metadata["filling_factor"] = m
-	metadata["qhole_position"] = qhole[2]
+	for i in 1:qhole_count
+		metadata["qhole_position_$i"] = qhole[i+1]
+	end
 	metadata["qhole_count"] = qhole[1]
 	println("Metadata Added")
 	create_group(binary_file_pos,"all-data")
@@ -109,18 +116,23 @@ function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data,coun
 	println("Data Added, File Closed: $axis")
 end
 
+
+
 mcs = 2000000
 particles = 20
 step_size = 0.5
-q_rad_count = 10
-i = 3
+q_rad_count = 9
+i = parse(Int64,ARGS[1])
 rm = sqrt(2*particles*i)
+qhole2_locations = [[0,0],[-rm*0.5,0],[-1.4*rm,0]]
+qhole2_choice = parse(Int64,ARGS[2])
 for j in 1:q_rad_count
-	quasihole = [1,[(j-1)*rm*1.5/q_rad_count,0]]
+	quasihole = [2,[j*rm*1.5/q_rad_count,0],qhole2_locations[qhole2_choice]]
 	data_here = main(mcs,particles,i,step_size,quasihole)
-	write_pos_data_hdf5("x",mcs,particles,i,step_size,quasihole,data_here[1],j)
-	write_pos_data_hdf5("y",mcs,particles,i,step_size,quasihole,data_here[2],j)
+	write_pos_data_hdf5("x",mcs,particles,i,step_size,quasihole,data_here[1],j,qhole2_choice)
+	write_pos_data_hdf5("y",mcs,particles,i,step_size,quasihole,data_here[2],j,qhole2_choice)
 end
+
 
 # 1 minute 15 sec = 1.25 1.25*1000= 1250/60= 20.83
 
