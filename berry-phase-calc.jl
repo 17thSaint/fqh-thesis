@@ -1,5 +1,5 @@
 using HDF5,PyPlot,CurveFit,Statistics
-function read_hdf5_data(num_parts,m,data_type,folder,version)
+function read_hdf5_data(num_parts,m,data_type,folder,version,qcount=1,q2loc=1)
 	cd("..")
 	cd("$folder")
 	#file = h5open("acc-rate-data.hdf5","r")
@@ -7,10 +7,17 @@ function read_hdf5_data(num_parts,m,data_type,folder,version)
 		file = h5open("$data_type-mc2000000-notherm.hdf5","r")
 		data = read(file["all-data"]["m-$m"]["parts-$num_parts"],"data")
 	elseif folder == "qhole-data"
-		file = h5open("$data_type-pos-mc-2000000-p-$num_parts-m-$m-qhole-$version.hdf5","r")
-		qhole_data = read(file["metadata"],"qhole_position")
-		full_poses = read(file["all-data"],"deets")
-		data = [full_poses[:,1:Int(size(full_poses)[2]/100)],qhole_data]
+		if qcount <= 1
+			file = h5open("$data_type-pos-mc-2000000-p-$num_parts-m-$m-qhole-$version.hdf5","r")
+			qhole_data = [read(file["metadata"],"qhole_position")]
+			full_poses = read(file["all-data"],"deets")
+			data = [full_poses[:,1:Int(size(full_poses)[2]/100)],qhole_data]
+		else
+			file = h5open("$data_type-pos-mc-2000000-p-$num_parts-m-$m-qhole-$qcount-q2loc-$q2loc-$version.hdf5","r")
+			qhole_data = [read(file["metadata"],"qhole_position_$i") for i in 1:3]
+			full_poses = read(file["all-data"],"deets")
+			data = [full_poses[:,1:Int(size(full_poses)[2]/100)],qhole_data]
+		end
 	else
 		println("Problem with Folder Name")
 	end
@@ -24,7 +31,7 @@ function dist_btw(part_1,part_2)
 end
 
 function get_expval(particles,full_data_x,full_data_y,dtheta,step) #for OG include rad
-	qhole_location = full_data_x[2][1] + im*full_data_x[2][2]
+	qhole_location = full_data_x[2][1][1] + im*full_data_x[2][1][2]
 	#chord = 2*rad*sin(dtheta/2)*exp(im*0.5*(pi+dtheta))
 	#qhole_shifted = qhole_location + chord
 	qhole_shifted = qhole_location*exp(im*dtheta)
@@ -102,19 +109,11 @@ particles = 20
 steps = 1
 m = 3
 q_rad_count = 10
-#xdats = [[read_hdf5_data(particles,m,"x","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+2,"x","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+4,"x","qhole-data",i) for i in 2:q_rad_count]]
-#ydats = [[read_hdf5_data(particles,m,"y","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+2,"y","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+4,"y","qhole-data",i) for i in 2:q_rad_count]]
+xdats = [[read_hdf5_data(particles,m,"x","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+2,"x","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+4,"x","qhole-data",i) for i in 2:q_rad_count]]
+ydats = [[read_hdf5_data(particles,m,"y","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+2,"y","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+4,"y","qhole-data",i) for i in 2:q_rad_count]]
 println("Read Data")
-#th_vals = [-(xdats[1][i][2][1]^2)/(4*m) for i in 1:9]
-#berries = get_calc_almost_berry(xdats,ydats,steps,particles,3)
-#for i in 1:20
-	#theta = -0.01 + (i-1)*0.02/20
-	#plot([xdats[2][j][2][1]/sqrt(2*particles*5) for j in 1:9],[berries[1][2][j][i] for j in 1:9],label="$theta")
-	#plot(berries[2],berries[1][1][i])
-	#plot([th_vals[i] for j in 1:10])
-#end
 
-
+berries = get_calc_almost_berry(xdats,ydats,steps,particles,3)
 
 for sel in 1:3
 	fils = [3,5,7]
@@ -139,6 +138,7 @@ end
 xlabel("Radius of Quasihole")
 ylabel("Almost Berry Phase")
 title("Berry Phase: Theory vs Simulation Calculated")
+
 
 
 #phase_dats = get_phase_from_ideal_dtheta(xdats,ydats,berries[1],berries[2],1)
