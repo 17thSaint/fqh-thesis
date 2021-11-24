@@ -14,7 +14,7 @@ function read_hdf5_data(num_parts,m,data_type,folder,version,qcount=1,q2loc=1)
 			data = [full_poses[:,1:Int(size(full_poses)[2]/100)],qhole_data]
 		else
 			file = h5open("$data_type-pos-mc-2000000-p-$num_parts-m-$m-qhole-$qcount-q2loc-$q2loc-$version.hdf5","r")
-			qhole_data = [read(file["metadata"],"qhole_position_$i") for i in 1:3]
+			qhole_data = [read(file["metadata"],"qhole_position_$i") for i in 1:qcount]
 			full_poses = read(file["all-data"],"deets")
 			data = [full_poses[:,1:Int(size(full_poses)[2]/100)],qhole_data]
 		end
@@ -108,13 +108,12 @@ end
 particles = 20
 steps = 1
 m = 3
-q_rad_count = 10
+q_rad_count = 9
+
+#=
 xdats = [[read_hdf5_data(particles,m,"x","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+2,"x","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+4,"x","qhole-data",i) for i in 2:q_rad_count]]
 ydats = [[read_hdf5_data(particles,m,"y","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+2,"y","qhole-data",i) for i in 2:q_rad_count],[read_hdf5_data(particles,m+4,"y","qhole-data",i) for i in 2:q_rad_count]]
-println("Read Data")
-
 berries = get_calc_almost_berry(xdats,ydats,steps,particles,3)
-
 for sel in 1:3
 	fils = [3,5,7]
 	mmms = fils[sel]
@@ -125,8 +124,6 @@ for sel in 1:3
 		berry_phase[j] = berries[1][sel][j][1]
 	end
 	plot(radii,berry_phase,"-p",label="M=$mmms")
-	#plot(radii,berry_phase./radii,"-p",label="M=$mmms")
-	#plot([xdats[sel][j][2][1] for j in 1:9],[-berries[1][sel][j][1] for j in 1:9],label="M=$mmms")
 end
 legend()
 
@@ -134,7 +131,33 @@ for i in [3,5,7]
 	x = [j for j in 0:20]
 	plot(x,x.*x./(2 .*i),"k")
 end
+=#
 
+#xdats = [[read_hdf5_data(particles,m,"x","qhole-data",i,2,j) for i in 1:q_rad_count] for j in 2:3]
+#ydats = [[read_hdf5_data(particles,m,"y","qhole-data",i,2,j) for i in 1:q_rad_count] for j in 2:3]
+println("Read Data")
+
+#berries = get_calc_almost_berry(xdats,ydats,steps,particles,2)
+
+for sel in 1:2
+	descr = ["origin","mid","edge"]
+	lab = descr[sel+1]
+	radii = [0.0 for i in 1:q_rad_count]
+	berry_phase = [0.0 for i in 1:q_rad_count]
+	for j in 1:q_rad_count
+		radii[j] = xdats[sel][j][2][1][1]/sqrt(2*m*particles)
+		berry_phase[j] = berries[1][sel][j][1]
+	end
+	println(berry_phase)
+	plot(radii,berry_phase,"-p",label="$lab")
+end
+legend()
+#=
+for i in 3:3
+	x = [j for j in 0:15]
+	plot(x,x.*x./(2 .*i),"k")
+end
+=#
 xlabel("Radius of Quasihole")
 ylabel("Almost Berry Phase")
 title("Berry Phase: Theory vs Simulation Calculated")
