@@ -49,7 +49,7 @@ end
 
 function main(steps,num_parts,m,step_size,qhole)
 	running_config = start_rand_config(num_parts,m)
-	samp_freq = 100
+	samp_freq = 10
 	#acc_rate = 0.0
 	therm_time = Int(0.1*steps)
 	collection_time = Int(steps*0.9)
@@ -94,7 +94,8 @@ function write_pos_data_hdf5(axis,mc_steps,particles,m,step_size,qhole,data,coun
 	println("Starting Data Write: $axis")
 	qhole_count = qhole[1]
 	if qhole_count > 1
-		binary_file_pos = h5open("$axis-pos-mc-$mc_steps-p-$particles-m-$m-qhole-$qhole_count-q2loc-$q2loc-$count.hdf5","w")
+		#binary_file_pos = h5open("$axis-pos-mc-$mc_steps-p-$particles-m-$m-qhole-$qhole_count-q2loc-$q2loc-$count.hdf5","w")
+		binary_file_pos = h5open("$axis-pos-p-$particles-m-$m-qhole-long-$qhole_count-q2loc-$q2loc-$count.hdf5","w")
 	else 
 		binary_file_pos = h5open("$axis-pos-mc-$mc_steps-p-$particles-m-$m-qhole-$count.hdf5","w")
 	end
@@ -125,7 +126,7 @@ q_rad_count = 9
 i = parse(Int64,ARGS[1])
 rm = sqrt(2*particles*i)
 qhole2_locations = [[0,0],[-rm*0.5,0],[-1.4*rm,0]]
-qhole2_choice = parse(Int64,ARGS[2])
+qhole2_choice = 1
 for j in 1:q_rad_count
 	quasihole = [2,[j*rm*1.5/q_rad_count,0],qhole2_locations[qhole2_choice]]
 	data_here = main(mcs,particles,i,step_size,quasihole)
