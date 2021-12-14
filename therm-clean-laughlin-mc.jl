@@ -1,5 +1,5 @@
 #import Pkg; Pkg.add("HDF5")
-using HDF5
+using HDF5,PyPlot
 
 function start_rand_config(num_parts,m)
 	rm = sqrt(2*num_parts*m)
@@ -26,13 +26,13 @@ function prob_wavefunc(config, m, qhole)
 	return full
 end
 
-function wavefunc_CF25_N3(config,dagger=false)
+function wavefunc_CFn2_N3(config,p)
 	imag_config = [config[i][1] - im*config[i][2] for i in 1:3]
-	full = log(4) + 2*log(abs(2*imag_config[1]^2 - imag_config[2]^2 - imag_config[3]^2 + 4*imag_config[2]*imag_config[3] - 2*imag_config[1]*(imag_config[2]+imag_config[3])))
+	full = log(16*(p^2)) + 2*log(abs(2*imag_config[1]^2 - imag_config[2]^2 - imag_config[3]^2 + 4*imag_config[2]*imag_config[3] - 2*imag_config[1]*(imag_config[2]+imag_config[3])))
 	for j in 1:3
 		for i in 1:j-1
 			dist = dist_btw(config[i],config[j])
-			full += 2*log(dist)
+			full += (4*p-2)*log(dist)
 		end
 		full += -0.5 * (config[j][1]^2 + config[j][2]^2) 
 	end
@@ -46,10 +46,10 @@ function move_particle(num_parts,chosen,step_size)
 	return shift_matrix
 end
 
-function acc_rej_move_CF(config,chosen,num_parts,step_size)
-	starting = wavefunc_CF25_N3(config)
+function acc_rej_move_CF(config,p,chosen,num_parts,step_size)
+	starting = wavefunc_CFn2_N3(config,p)
 	shift_matrix = move_particle(num_parts,chosen,step_size)
-	next = wavefunc_CF25_N3(config+shift_matrix)
+	next = wavefunc_CFn2_N3(config+shift_matrix,p)
 	rand_num = log(rand(Float64))
 	if next - starting > rand_num
 		return config+shift_matrix, 1
@@ -85,24 +85,24 @@ function main(steps,num_parts,m,step_size,qhole)
 	time_config_y = fill(0.0,(num_parts,Int(0.9*steps/samp_freq)))
 	index = 1
 	for i_therm in 1:therm_time
-		if i_therm%(therm_time*0.05) == 0
-			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
-		end
+		#if i_therm%(therm_time*0.05) == 0
+		#	println("Thermalizing:"," ",100*i_therm/therm_time,"%")
+		#end
 		for j_therm in 1:num_parts
 			#movement = acc_rej_move(running_config,j_therm,num_parts,m,step_size,qhole)
-			movement = acc_rej_move_CF(running_config,j_therm,num_parts,step_size)
+			movement = acc_rej_move_CF(running_config,m,j_therm,num_parts,step_size)
 			running_config = movement[1]
 		end
 	end
 	println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
-		if i%(collection_time*0.05) == 0
-			println("Running:"," ",100*i/collection_time,"%")
-		end
+		#if i%(collection_time*0.05) == 0
+		#	println("Running:"," ",100*i/collection_time,"%")
+		#end
 		#println("Calc New Config",DateTime(now()))
 		for j in 1:num_parts
 			#movement = acc_rej_move(running_config,j,num_parts,m,step_size,qhole)
-			movement = acc_rej_move_CF(running_config,j,num_parts,step_size)
+			movement = acc_rej_move_CF(running_config,m,j,num_parts,step_size)
 			#acc_rate += movement[2]/(collection_time*num_parts)
 			running_config = movement[1]
 		end
@@ -149,12 +149,21 @@ end
 
 
 
-mcs = 10000
+mcs = 100000
 particles = 3
 step_size = 0.5
-results = main(mcs,particles,1.0,step_size,0.0)
-plot(transpose(results[1]),transpose(results[2]))
+#=
+rezz = []
+Threads.@threads for i in 1:3
+	results = main(mcs,particles,i,step_size,0.0)
+	append!(rezz,results)
+end
+=#
 
+
+# single set 30 seconds, 3 sets in 1 minute
+# need to set environment variable export JULIA_NUM_THREADS=n
+# or use julia -t n
 
 #=
 q_rad_count = 9
