@@ -26,12 +26,40 @@ function prob_wavefunc(config, m, qhole)
 	return full
 end
 
+function wavefunc_CF25_N3(config,dagger=false)
+	imag_config = [config[i][1] - im*config[i][2] for i in 1:3]
+	full = log(4) + 2*log(abs(2*imag_config[1]^2 - imag_config[2]^2 - imag_config[3]^2 + 4*imag_config[2]*imag_config[3] - 2*imag_config[1]*(imag_config[2]+imag_config[3])))
+	for j in 1:3
+		for i in 1:j-1
+			dist = dist_btw(config[i],config[j])
+			full += 2*log(dist)
+		end
+		full += -0.5 * (config[j][1]^2 + config[j][2]^2) 
+	end
+	return full
+end
+
 function move_particle(num_parts,chosen,step_size)
 	shift_matrix = [[0.0,0.0] for i = 1:num_parts]
 	shift_matrix[chosen][1] += rand(-1:2:1)*rand(Float64)*step_size
 	shift_matrix[chosen][2] += rand(-1:2:1)*rand(Float64)*step_size
 	return shift_matrix
 end
+
+function acc_rej_move_CF(config,chosen,num_parts,step_size)
+	starting = wavefunc_CF25_N3(config)
+	shift_matrix = move_particle(num_parts,chosen,step_size)
+	next = wavefunc_CF25_N3(config+shift_matrix)
+	rand_num = log(rand(Float64))
+	if next - starting > rand_num
+		return config+shift_matrix, 1
+	else
+		return config, 0
+	end
+	
+	return "Acceptance Calculation Error"
+end
+
 
 function acc_rej_move(config,chosen,num_parts,m,step_size,qhole)
 	start_ham = prob_wavefunc(config,m,qhole)
@@ -61,7 +89,8 @@ function main(steps,num_parts,m,step_size,qhole)
 			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
 		end
 		for j_therm in 1:num_parts
-			movement = acc_rej_move(running_config,j_therm,num_parts,m,step_size,qhole)
+			#movement = acc_rej_move(running_config,j_therm,num_parts,m,step_size,qhole)
+			movement = acc_rej_move_CF(running_config,j_therm,num_parts,step_size)
 			running_config = movement[1]
 		end
 	end
@@ -72,7 +101,8 @@ function main(steps,num_parts,m,step_size,qhole)
 		end
 		#println("Calc New Config",DateTime(now()))
 		for j in 1:num_parts
-			movement = acc_rej_move(running_config,j,num_parts,m,step_size,qhole)
+			#movement = acc_rej_move(running_config,j,num_parts,m,step_size,qhole)
+			movement = acc_rej_move_CF(running_config,j,num_parts,step_size)
 			#acc_rate += movement[2]/(collection_time*num_parts)
 			running_config = movement[1]
 		end
@@ -119,9 +149,14 @@ end
 
 
 
-mcs = 2000000
-particles = 20
+mcs = 10000
+particles = 3
 step_size = 0.5
+results = main(mcs,particles,1.0,step_size,0.0)
+plot(transpose(results[1]),transpose(results[2]))
+
+
+#=
 q_rad_count = 9
 i = parse(Int64,ARGS[1])
 rm = sqrt(2*particles*i)
@@ -133,7 +168,7 @@ for j in 1:q_rad_count
 	write_pos_data_hdf5("x",mcs,particles,i,step_size,quasihole,data_here[1],j,qhole2_choice)
 	write_pos_data_hdf5("y",mcs,particles,i,step_size,quasihole,data_here[2],j,qhole2_choice)
 end
-
+=#
 
 # 1 minute 15 sec = 1.25 1.25*1000= 1250/60= 20.83
 
