@@ -1,4 +1,4 @@
-using LinearAlgebra,PyPlot,Test
+using LinearAlgebra,PyPlot
 
 function get_wf_elem(num_parts,element,n=2)
 	if element[1] > num_parts/2
@@ -11,12 +11,20 @@ function get_wf_elem(num_parts,element,n=2)
 	return m,pow
 end
 
-function get_Jis(config,num_parts,part)
+function get_Jis(config,part)
 	ji = 1.0
-	jiprime_elem = [1.0+0.0*im for i in part + 1:num_parts]
-	for p in part + 1:num_parts
+	println("Config: ",config)
+	num_parts = length(config)
+	#jiprime_elem = [1.0+0.0*im for i in part + 1:num_parts]
+	for p in 1:num_parts
+		if p == part
+			continue
+		end
 		dist_btw = config[part]-config[p]
-		ji *= dist_btw^2
+		println("Dist Btw $part and $p: ",dist_btw)
+		ji *= dist_btw
+		println("J $part: ",ji)
+		#=
 		for i in part + 1:num_parts
 			if i == p
 				jiprime_elem[i-part] *= 2*dist_btw
@@ -24,13 +32,15 @@ function get_Jis(config,num_parts,part)
 			end
 			jiprime_elem[i-part] *= dist_btw^2
 		end
+		=#
 	end
-	jiprime = sum(jiprime_elem)
-	return ji,jiprime
+	#jiprime = sum(jiprime_elem)
+	return ji#,jiprime
 end
 
-function get_Jiprime(config,num_parts,part)
+function get_Jiprime(config,part)
 	jiprime = 0
+	num_parts = length(config)
 	for j in part + 1:num_parts
 		prod_part = 2*abs(config[part] - config[j])
 		for k in part + 1:num_parts
@@ -69,8 +79,9 @@ function get_wavefunc(config,num_parts)
 	return wavefunc
 end
 
-function get_logJi(config,num_parts,part)
+function get_logJi(config,part)
 	logJi = 0.0+0.0*im
+	num_parts = length(config)
 	for i in part + 1:num_parts
 		logJi += 2*log(config[part] - config[i])
 	end
@@ -103,7 +114,7 @@ function get_log_wavefunc(config,num_parts)
 	return log_wavefunc,matrix_full
 end
 
-
+#=
 setup = Complex.([1*i for i in 1:4])
 particles = length(setup)
 reg_val = fill(0.0+0.0*im,(4,4))
@@ -115,7 +126,7 @@ for i in 1:4
 	end
 end
 #println(reg_val," ",log_val)
-
+=#
 
 
 
