@@ -43,14 +43,16 @@ one_jiprime = get_Jiprime(comp_coords1,1)
 two_ji = get_Jis(comp_coords2,1)
 two_jiprime = get_Jiprime(comp_coords2,1)
 
-num_jiprime = (two_ji - one_ji)/ep
-@test isapprox(num_jiprime,one_jiprime,atol=sqrt(eps()))
+num_jiprime = 2*(two_ji - one_ji)/ep
+@test isapprox(num_jiprime,one_jiprime,atol=10^(-3))
 
-@testset "logJi" begin
-coords3 = rand(4) + im*rand(4)
-three_ji = get_Jis(coords3,1)
-log_three_ji = get_logJi(coords3,1)
 
-@test isapprox(three_ji,exp(log_three_ji),atol=sqrt(eps()))
-end
+coords3 = rand(2) + im*rand(2)
+three_det_reg = get_wavefunc(coords3)
+three_det_log_approx = exp(get_log_det(coords3))
+@test isapprox(three_det_reg,three_det_log_approx,atol=10^(-3))
+
+
+
+
 

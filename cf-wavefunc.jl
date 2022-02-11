@@ -13,51 +13,45 @@ end
 
 function get_Jis(config,part)
 	ji = 1.0
-	println("Config: ",config)
 	num_parts = length(config)
-	#jiprime_elem = [1.0+0.0*im for i in part + 1:num_parts]
 	for p in 1:num_parts
 		if p == part
 			continue
 		end
 		dist_btw = config[part]-config[p]
-		println("Dist Btw $part and $p: ",dist_btw)
 		ji *= dist_btw
-		println("J $part: ",ji)
-		#=
-		for i in part + 1:num_parts
-			if i == p
-				jiprime_elem[i-part] *= 2*dist_btw
-				continue
-			end
-			jiprime_elem[i-part] *= dist_btw^2
-		end
-		=#
 	end
-	#jiprime = sum(jiprime_elem)
-	return ji#,jiprime
+	return ji
 end
 
 function get_Jiprime(config,part)
 	jiprime = 0
 	num_parts = length(config)
-	for j in part + 1:num_parts
-		prod_part = 2*abs(config[part] - config[j])
-		for k in part + 1:num_parts
+	for j in 1:num_parts
+		if j == part
+			continue
+		end
+		jiprime_local = 1
+		for k in 1:num_parts
+			if k == part
+				continue
+			end
 			if k == j
 				continue
 			end
-			prod_part *= abs2(config[part] - config[k])
+			dist_btw = config[part] - config[k]
+			jiprime_local *= dist_btw
 		end
-		jiprime += prod_part
+		jiprime += 2*jiprime_local
 	end
 	return jiprime
 end
 
-function get_elem_projection(config,num_parts,part,row)
+function get_elem_projection(config,part,row)
+	num_parts = length(config)
 	matrix_element = [row,part]
 	bar, l = get_wf_elem(num_parts,matrix_element)
-	Ji, Jiprime = get_Jis(config,num_parts,part)
+	Ji, Jiprime = get_Jis(config,part),get_Jiprime(config,part)
 	if bar > 0
 		result = 2*(l*(config[part]^(l-1))*Ji + (config[part]^l)*Jiprime)
 	else
@@ -66,17 +60,34 @@ function get_elem_projection(config,num_parts,part,row)
 	return result
 end
 
-function get_wavefunc(config,num_parts)
+function get_wavefunc(config)
+	num_parts = length(config)
 	matrix_full = fill(0.0+0.0*im,(num_parts,num_parts))
 	wavefunc = 1.0
 	for i in 1:num_parts
-		wavefunc *= exp(-abs2(config[i])/4)
+		#wavefunc *= exp(-abs2(config[i])/4)
 		for j in 1:num_parts
-			matrix_full[i,j] = get_elem_projection(config,num_parts,j,i)
+			matrix_full[i,j] = get_elem_projection(config,j,i)
 		end
 	end
 	wavefunc *= det(matrix_full)
 	return wavefunc
+end
+
+function get_exppart_elem(config,part,row)
+	reg_ver = get_elem_projection(config,part,row)
+	return log(reg_ver)
+end
+
+function get_log_det(config)
+	num_parts = length(config)
+	log_det = 0
+	for i in 1:num_parts
+		log_det += get_exppart_elem(config,i,i)
+	end
+	log_det += log(1-exp(get_exppart_elem(config,1,2)-get_exppart_elem(config,1,1))*exp(get_exppart_elem(config,2,1)-get_exppart_elem(config,2,2)))
+	#log_det -= exp(get_exppart_elem(config,1,2)-get_exppart_elem(config,1,1))*exp(get_exppart_elem(config,2,1)-get_exppart_elem(config,2,2))
+	return log_det
 end
 
 function get_logJi(config,part)
