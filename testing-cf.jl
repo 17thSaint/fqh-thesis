@@ -14,7 +14,7 @@ end
 =#
 
 
-
+#=
 coords1 = rand(4)
 coords2 = rand(4)
 
@@ -45,13 +45,24 @@ two_jiprime = get_Jiprime(comp_coords2,1)
 
 num_jiprime = 2*(two_ji - one_ji)/ep
 @test isapprox(num_jiprime,one_jiprime,atol=10^(-3))
+=#
 
+coords3 = rand(4) + im*rand(4)
+reg_jiprime = get_Jiprime(coords3,1)
+log_jiprime = get_logJiprime(coords3,1)
+@test isapprox(reg_jiprime,exp(log_jiprime),atol=10^(-3))
 
-coords3 = rand(2) + im*rand(2)
-three_det_reg = get_wavefunc(coords3)
-three_det_log_approx = exp(get_log_det(coords3))
-@test isapprox(three_det_reg,three_det_log_approx,atol=10^(-3))
+for i in 1:4
+for j in 1:4
+log_element = get_log_elem_proj(coords3,i,j)
+reg_element = get_elem_projection(coords3,i,j)
+@test isapprox(reg_element,exp(log_element),atol=10^(-3))
+end
+end
 
+reg_wavefunc = get_wavefunc(coords3)
+log_wavefunc = get_det_fromlog(coords3)
+@test isapprox(reg_wavefunc,log_wavefunc,atol=10^(-3))
 
 
 

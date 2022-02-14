@@ -74,22 +74,82 @@ function get_wavefunc(config)
 	return wavefunc
 end
 
-function get_exppart_elem(config,part,row)
-	reg_ver = get_elem_projection(config,part,row)
-	return log(reg_ver)
-end
-
-function get_log_det(config)
+function get_logJi(config,part)
+	logji = 0.0
 	num_parts = length(config)
-	log_det = 0
-	for i in 1:num_parts
-		log_det += get_exppart_elem(config,i,i)
+	for p in 1:num_parts
+		if p == part
+			continue
+		end
+		dist_btw = config[part]-config[p]
+		logji += log(dist_btw)
 	end
-	log_det += log(1-exp(get_exppart_elem(config,1,2)-get_exppart_elem(config,1,1))*exp(get_exppart_elem(config,2,1)-get_exppart_elem(config,2,2)))
-	#log_det -= exp(get_exppart_elem(config,1,2)-get_exppart_elem(config,1,1))*exp(get_exppart_elem(config,2,1)-get_exppart_elem(config,2,2))
-	return log_det
+	return logji
 end
 
+function get_logJiprime(config,part)
+	logjiprime = 0.0+im*0.0
+	num_parts = length(config)
+	start = 0
+	for i in 1:num_parts
+		if i == part
+			continue
+		end
+		next_part = 0.0+im*0.0
+		for j in 1:num_parts
+			if j == i
+				continue
+			end
+			if j == part
+				continue
+			end
+			dist_btw = config[part] - config[j]
+			next_part += log(dist_btw)
+		end
+		if start == 0
+			logjiprime += next_part
+		else
+			logjiprime += log(1 + exp(next_part - logjiprime))
+		end
+		start += 1
+	end
+	logjiprime += log(2)
+	return logjiprime
+end	
+
+function get_log_elem_proj(config,part,row)
+	num_parts = length(config)
+	matrix_element = [row,part]
+	bar, l = get_wf_elem(num_parts,matrix_element)
+	logJi, logJiprime = get_logJi(config,part), get_logJiprime(config,part)
+	if bar > 0
+		if l == 0
+			result = log(2) + logJiprime
+		else
+			a = log(2) + log(l) + (l-1)*log(config[part]) + logJi
+			b = log(2) + l*log(config[part]) + logJiprime
+			result = a + log(1 + exp(b-a))
+		end
+	else
+		result = l*log(config[part]) + logJi
+	end
+	return result
+end
+
+function get_det_fromlog(config)
+	num_parts = length(config)
+	log_matrix = fill(0.0+im*0.0,(num_parts,num_parts))
+	for i in 1:num_parts
+		for j in 1:num_parts	
+			log_matrix[i,j] += get_log_elem_proj(config,j,i)
+		end
+	end
+	reg_matrix = exp.(log_matrix)
+	result = det(reg_matrix)
+	return result
+end
+
+#=
 function get_logJi(config,part)
 	logJi = 0.0+0.0*im
 	num_parts = length(config)
@@ -98,6 +158,7 @@ function get_logJi(config,part)
 	end
 	return logJi
 end
+=#
 
 function get_log_elem_proj(config,num_parts,part,row)
 	matrix_element = [row,part]
