@@ -1,26 +1,31 @@
 using LinearAlgebra,PyPlot
 
-function get_wf_elem(num_parts,element,qpart=[0,[0]],n=2)
+function get_wf_elem(num_parts,element,n,qpart=[0,[0]])
 	qpart_shift = qpart[1]
-	if element[1] > num_parts/2 + qpart_shift
+	if n == 2 && element[1] > num_parts/2 + qpart_shift
 		m = 1
 		pow = element[1] - num_parts/2 - 1 - qpart_shift
 		result = [m,pow]
 	else
 		m = 0
 		pow = element[1] - 1 - qpart_shift
-		result = [m,pow]
+		result = [m,pow]	
 	end
 	return result
 end
 
-function get_qpart_wf_exp(config,qpart,which_qpart,particle)
-	lstar2 = 2*1*2 + 1
-	result = exp(conj(qpart[2][which_qpart])*config[particle]/(2*lstar2) - abs2(qpart[2][which_qpart])/(4*lstar2))
+function get_qpart_wf_exp(config,qpart,which_qpart,chosen_qpart,n)
+	lstar2 = 2*1*n + 1
+	if chosen_qpart[1] == "particle"
+		position = config[chosen_qpart[2]]
+	else
+		position = qpart[2][chosen_qpart[2]]
+	end
+	result = exp(conj(qpart[2][which_qpart])*position/(2*lstar2) - abs2(qpart[2][which_qpart])/(4*lstar2))
 	return result
 end
 
-function get_Jis(config,part,qhole=[0,0])
+function get_Jis(config,part,qpart=[0,[0]],qhole=[0,0])
 	ji = 1.0
 	num_parts = length(config)
 	for p in 1:num_parts
@@ -30,6 +35,12 @@ function get_Jis(config,part,qhole=[0,0])
 		dist_btw = config[part]-config[p]
 		ji *= dist_btw
 	end
+	#=
+	for q in 1:qpart[1]
+		dist_btw = config[part]-qpart[2][q]
+		ji *= dist_btw
+	end
+	=#
 	if real(qhole[1]) > 0.1
 		ji *= config[part] - qhole[2]
 	end
@@ -63,30 +74,58 @@ function get_Jiprime(config,part,qhole=[0,0])
 	return jiprime
 end
 
-function get_elem_projection(config,part,row,qpart=[0,[0]],qhole=[0,0])
+function get_elem_projection(config,part,row,n,qpart=[0,[0]],qhole=[0,0])
 	num_parts = length(config)
 	matrix_element = [row,part]
-	bar, l = get_wf_elem(num_parts,matrix_element)
-	Ji, Jiprime = get_Jis(config,part,qhole),get_Jiprime(config,part,qhole)
-	if qpart[1] > 0 && row <= qpart[1]
-		exp_part = get_qpart_wf_exp(config,qpart,row,part)
-		result = (16/25)*conj(qpart[2][row])*exp_part
-	elseif bar > 0
-		result = 2*(l*(config[part]^(l-1))*Ji + (config[part]^l)*Jiprime)
-	else
-		result = (config[part]^l)*Ji
+	qpart_shift = qpart[1]
+	if row >= qpart_shift + 1
+		bar, l = get_wf_elem(num_parts,matrix_element,n)
+		if part <= num_parts # bottom left all particles
+			Ji, Jiprime = get_Jis(config,part,qhole),get_Jiprime(config,part,qhole)
+			section = "BL"
+			if bar > 0
+				result = 2*(l*(config[part]^(l-1))*Ji + (config[part]^l)*Jiprime)
+			else
+				result = (config[part]^l)*Ji
+			end
+		else # bottom right polynomial is quasiparticle
+			section = "BR"
+			if bar > 0
+				result = 0.0#qpart[2][part-num_parts]*Jiprime
+			else
+				result = (qpart[2][part-num_parts]^l)#*Ji
+			end
+		end
+	elseif row < qpart_shift + 1
+		lstar2 = 2*1*n + 1
+		coeff = [(1/lstar2) - 1,1/lstar2^2 - 2\lstar2 + 1]
+		if part <= num_parts # top left quasiparticle coherent with particles
+			section = "TL"
+			Ji, Jiprime = get_Jis(config,part,qhole),get_Jiprime(config,part,qhole)
+			exp_part = get_qpart_wf_exp(config,qpart,row,["particle",part],n)
+			result = coeff[n]*(conj(qpart[2][row])^n)*exp_part*Ji + Jiprime*exp_part
+		else # top right quasiparticle coherent with quasiparticles
+			section = "TR"
+			exp_part = get_qpart_wf_exp(config,qpart,row,["quasi",part-num_parts],n)
+			result = coeff[n]*(conj(qpart[2][row])^n)*exp_part
+		end
 	end
-	return result
+	return result#,section
 end
 
-function get_wavefunc(config,qpart=[0,[0]],qhole=[0,0])
+function get_wavefunc(config,n,qpart=[0,[0]],qhole=[0,0])
 	num_parts = length(config)
-	matrix_full = fill(0.0+0.0*im,(num_parts,num_parts))
+	matrix_full = fill(0.0+0.0*im,(num_parts+qpart[1],num_parts+qpart[1]))
+	#matrix_display = fill("",(num_parts+qpart[1],num_parts+qpart[1]))
 	wavefunc = 1.0
-	for i in 1:num_parts
-		wavefunc *= exp(-abs2(config[i])/4)
-		for j in 1:num_parts
-			matrix_full[i,j] = get_elem_projection(config,j,i,qpart,qhole)
+	for i in 1:num_parts + qpart[1]
+		if i <= num_parts
+			wavefunc *= exp(-abs2(config[i])/4)
+		end
+		for j in 1:num_parts + qpart[1]
+			dats = get_elem_projection(config,j,i,n,qpart,qhole)
+			matrix_full[i,j] = dats
+			#matrix_display[i,j] = dats[2]
 		end
 	end
 	wavefunc *= det(matrix_full)
@@ -136,10 +175,10 @@ function get_logJiprime(config,part)
 	return logjiprime
 end	
 
-function get_log_elem_proj(config,part,row)
+function get_log_elem_proj(config,part,row,n)
 	num_parts = length(config)
 	matrix_element = [row,part]
-	bar, l = get_wf_elem(num_parts,matrix_element)
+	bar, l = get_wf_elem(num_parts,matrix_element,n)
 	logJi, logJiprime = get_logJi(config,part), get_logJiprime(config,part)
 	if bar > 0
 		if l == 0
@@ -155,12 +194,12 @@ function get_log_elem_proj(config,part,row)
 	return result
 end
 
-function get_wavefunc_fromlog(config)
+function get_wavefunc_fromlog(config,n)
 	num_parts = length(config)
 	log_matrix = fill(0.0+im*0.0,(num_parts,num_parts))
 	for i in 1:num_parts
 		for j in 1:num_parts	
-			log_matrix[i,j] += get_log_elem_proj(config,j,i)
+			log_matrix[i,j] += get_log_elem_proj(config,j,i,n)
 		end
 	end
 	reg_matrix = exp.(log_matrix)
