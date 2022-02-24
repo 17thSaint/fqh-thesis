@@ -35,34 +35,43 @@ function get_Jis(config,part,qpart=[0,[0]],qhole=[0,0])
 		dist_btw = config[part]-config[p]
 		ji *= dist_btw
 	end
-	#=
+	#
 	for q in 1:qpart[1]
 		dist_btw = config[part]-qpart[2][q]
-		ji *= dist_btw
+		ji *= dist_btw^2
 	end
-	=#
+	#
 	if real(qhole[1]) > 0.1
 		ji *= config[part] - qhole[2]
 	end
 	return ji
 end
 
-function get_Jiprime(config,part,qhole=[0,0])
+function get_Jiprime(config,part,qpart=[0,[0]],qhole=[0,0])
 	jiprime = 0
 	num_parts = length(config)
-	for j in 1:num_parts
+	for j in 1:num_parts + qpart[1]
 		if j == part
 			continue
 		end
+		if j > num_parts
+			pos_selected = qpart[2][part-num_parts]
+		else
+			pos_selected = config[part]
+		end
 		jiprime_local = 1
-		for k in 1:num_parts
+		for k in 1:num_parts + qpart[1]
 			if k == part
 				continue
 			end
 			if k == j
 				continue
 			end
-			dist_btw = config[part] - config[k]
+			if k > num_parts
+				dist_btw = pos_selected - qpart[2][k-num_parts]
+			else
+				dist_btw = pos_selected - config[k]
+			end
 			jiprime_local *= dist_btw
 		end
 		jiprime += 2*jiprime_local
@@ -103,7 +112,7 @@ function get_elem_projection(config,part,row,n,qpart=[0,[0]],qhole=[0,0])
 			section = "TL"
 			Ji, Jiprime = get_Jis(config,part,qhole),get_Jiprime(config,part,qhole)
 			exp_part = get_qpart_wf_exp(config,qpart,row,["particle",part],n)
-			result = coeff[n]*(conj(qpart[2][row])^n)*exp_part*Ji + Jiprime*exp_part
+			result = coeff[n]*(conj(qpart[2][row])^n)*exp_part*Ji + 2*Jiprime*exp_part
 		else # top right quasiparticle coherent with quasiparticles
 			section = "TR"
 			exp_part = get_qpart_wf_exp(config,qpart,row,["quasi",part-num_parts],n)
