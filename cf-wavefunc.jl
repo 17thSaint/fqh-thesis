@@ -14,10 +14,10 @@ function get_wf_elem(num_parts,element,n,qpart=[0,[0]])
 	return result
 end
 
-function get_qpart_wf_exp(config,qpart,which_qpart,part,n,exp=true)
+function get_qpart_wf_exp(config,qpart,which_qpart,part,n,exp_check=true)
 	lstar2 = 2*1*n + 1
 	position = config[part]
-	if exp
+	if exp_check
 		result = exp(conj(qpart[2][which_qpart])*position/(2*lstar2) - abs2(qpart[2][which_qpart])/(4*lstar2))
 	else
 		result = conj(qpart[2][which_qpart])*position/(2*lstar2) - abs2(qpart[2][which_qpart])/(4*lstar2)
@@ -251,11 +251,11 @@ function get_log_elem_proj(config,part,row,n,qpart=[0,[0]])
 		logetabar = log(conj(qpart[2][row]))
 		log_exppart = get_qpart_wf_exp(config,qpart,row,part,n,false)
 		if n == 1
-			part1 = logetabar + logJi + log(coeff[n])
+			part1 = logetabar + logJi + log(Complex(coeff[n]))
 			part2 = log(2) + logJiprime
 			result = log_exppart + get_log_add(part1,part2)
 		else
-			part1 = 2*logetabar + logJi + log(coeff[n])
+			part1 = 2*logetabar + logJi + log(Complex(coeff[n]))
 			part2 = log(4) + logetabar + logJiprime
 			part3 = log(4) + logJi2prime
 			result = log_exppart + get_log_add(part1,get_log_add(part2,part3))

@@ -27,7 +27,7 @@ end
 
 function start_rand_config(num_parts,n)
 	filling = n/(2*1*n+1)
-	rm = sqrt(2*num_parts/filling)
+	rm = sqrt(2*num_parts/filling)/2
 	config = [rand(Float64)*rand(-1:2:1)*rm - im*rand(Float64)*rand(-1:2:1)*rm for i in 1:num_parts]
 	return config
 end
@@ -38,12 +38,26 @@ function move_particle(num_parts,chosen,step_size)
 	return shift_matrix
 end
 
-function acc_rej_move(config,n,chosen,num_parts,step_size,qpart=[0,[0]],qhole=[0,0])
+function acc_rej_move(config,n,chosen,step_size,qpart=[0,[0]],qhole=[0,0],log_form=false)
+	num_parts = length(config)
 	start_ham = abs2(get_wavefunc(config,n,qpart,qhole))
 	shift_matrix = move_particle(num_parts,chosen,step_size)
+	#boundary = 3*sqrt(2*num_parts*(2*1*n+1)/n)
+	#if abs2(config[chosen]+shift_matrix[chosen]) > boundary
+	#	return config, 0
+	#end
 	new_ham = abs2(get_wavefunc(config+shift_matrix,n,qpart,qhole))
+	check = new_ham/start_ham
 	rand_num = rand(Float64)
-	if new_ham/start_ham >= rand_num
+	
+	if log_form
+		start_ham = 2*real(get_wavefunc_fromlog(config,n,qpart))
+		new_ham = 2*real(get_wavefunc_fromlog(config+shift_matrix,n,qpart))
+		check = new_ham - start_ham
+		rand_num = log(rand_num)*2*0.5
+	end
+	
+	if check >= rand_num
 		#println("Accept: ",new_ham,", ",start_ham,", ",rand_num)
 		return config+shift_matrix, 1
 	else
@@ -54,7 +68,7 @@ function acc_rej_move(config,n,chosen,num_parts,step_size,qpart=[0,[0]],qhole=[0
 	return "Acceptance Calculation Error"
 end
 
-function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0])
+function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0],log_form=false)
 	running_config = start_rand_config(num_parts,n)
 	samp_freq = Int(0.0001*steps)
 	acc_count = 0
@@ -68,7 +82,7 @@ function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0])
 			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
 		end
 		for j_therm in 1:num_parts
-			movement = acc_rej_move(running_config,n,j_therm,num_parts,step_size,qpart,qhole)
+			movement = acc_rej_move(running_config,n,j_therm,step_size,qpart,qhole,log_form)
 			running_config = movement[1]
 		end
 	end
@@ -76,7 +90,7 @@ function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0])
 	for i in 1:collection_time
 		#println("Calc New Config",DateTime(now()))
 		for j in 1:num_parts
-			movement = acc_rej_move(running_config,n,j,num_parts,step_size,qpart,qhole)
+			movement = acc_rej_move(running_config,n,j,step_size,qpart,qhole,log_form)
 			acc_count += movement[2]
 			running_config = movement[1]
 		end
@@ -100,25 +114,26 @@ function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0])
 end
 
 particles = 4
-mc_steps = 1000000
+mc_steps = 10000
 step_size = 0.5
 n = 2
 filling = round(n/(2*1*n+1),digits=3)
 rm = 0.1*sqrt(2*particles/filling)
-qpart = [1,[0.0+im*1.0]]#rand(Float64)*rand(-1:2:1)*rm - im*rand(Float64)*rand(-1:2:1)*rm
-rezz = main(n,mc_steps,particles,step_size,qpart)
+qpart = [0,[0]]#[1,[0.0+im*0.0]]
+rezz = main(n,mc_steps,particles,step_size,qpart,[0,0],true)
 #write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,rezz,1)
 #=
 plot(real(transpose(rezz)),imag(transpose(rezz)))
 for i in 1:length(qpart[2])
 	scatter([real(qpart[2][i])],[imag(qpart[2][i])])
 end
-=#
 xs = collect(Iterators.flatten([real(rezz[i,:]) for i in 1:particles]))
 ys = collect(Iterators.flatten([-imag(rezz[i,:]) for i in 1:particles]))
 hist2D(xs,ys,bins=100)
-title(latexstring("Histogram with Quasihole and \$ \\nu = $filling \$: Mine"))
-
+title(latexstring("Histogram with Quasihole and \$ \\nu = $filling \$"))
+=#
+radii = collect(Iterators.flatten([abs2.(rezz[i,:]) for i in 1:particles]))
+hist(radii,bins=100)
 #=
 starting_config = start_rand_config(particles,n)
 data_count = 20
@@ -134,7 +149,7 @@ for i in 1:length(xs)
 		append!(xs_plot,[local_x])
 		append!(ys_plot,[local_y])
 		starting_config[1] = local_x - im*local_y
-		prob_local = abs2(get_wavefunc(starting_config,n,qpart))
+		prob_local = abs2(get_wavefunc(starting_config,n,qpart)[1])
 		append!(probs,[prob_local])
 	end
 end
