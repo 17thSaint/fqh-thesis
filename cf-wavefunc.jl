@@ -14,10 +14,14 @@ function get_wf_elem(num_parts,element,n,qpart=[0,[0]])
 	return result
 end
 
-function get_qpart_wf_exp(config,qpart,which_qpart,part,n)
+function get_qpart_wf_exp(config,qpart,which_qpart,part,n,exp=true)
 	lstar2 = 2*1*n + 1
 	position = config[part]
-	result = exp(conj(qpart[2][which_qpart])*position/(2*lstar2) - abs2(qpart[2][which_qpart])/(4*lstar2))
+	if exp
+		result = exp(conj(qpart[2][which_qpart])*position/(2*lstar2) - abs2(qpart[2][which_qpart])/(4*lstar2))
+	else
+		result = conj(qpart[2][which_qpart])*position/(2*lstar2) - abs2(qpart[2][which_qpart])/(4*lstar2)
+	end
 	return result
 end
 
@@ -75,21 +79,12 @@ function get_Ji2prime(config,part,qpart=[0,[0]],qhole=[0,0])
 		pos_selected = config[part]
 		ji2prime_local = 0
 		for k in 1:num_parts
-			if k == part
-				continue
-			end
-			if k == j
+			if k == part || k == j
 				continue
 			end
 			ji2prime_local_local = 1
 			for m in 1:num_parts
-				if m == part
-					continue
-				end
-				if m == j
-					continue
-				end
-				if m == k
+				if m == part || m == j || m == k
 					continue
 				end
 				dist_btw = pos_selected - config[m]
@@ -156,6 +151,16 @@ function get_logJi(config,part)
 	return logji
 end
 
+function get_log_add(a,b)
+	if real(a) > real(b)
+		ordered = [b,a]
+	else
+		ordered = [a,b]
+	end
+	result = ordered[2] + log(1 + exp(ordered[1] - ordered[2]))
+	return result
+end
+
 function get_logJiprime(config,part)
 	logjiprime = 0.0+im*0.0
 	num_parts = length(config)
@@ -166,10 +171,7 @@ function get_logJiprime(config,part)
 		end
 		next_part = 0.0+im*0.0
 		for j in 1:num_parts
-			if j == i
-				continue
-			end
-			if j == part
+			if j == i || j == part
 				continue
 			end
 			dist_btw = config[part] - config[j]
@@ -178,19 +180,61 @@ function get_logJiprime(config,part)
 		if start == 0
 			logjiprime += next_part
 		else
-			logjiprime += log(1 + exp(next_part - logjiprime))
+			logjiprime = get_log_add(next_part,logjiprime)
 		end
 		start += 1
 	end
 	return logjiprime
 end	
 
+function get_logJi2prime(config,part)
+	logji2prime = 0.0+im*0.0
+	num_parts = length(config)
+	start = 0
+	for i in 1:num_parts
+		if i == part
+			continue
+		end
+		start2 = 0
+		next_part = 0.0+im*0.0
+		for j in 1:num_parts
+			if j == i || j == part
+				continue
+			end
+			next_next_part = 0.0+im*0.0
+			for m in 1:num_parts
+				if m == i || m == part || m == j
+					continue
+				end
+				dist_btw = config[part] - config[m]
+				next_next_part += log(Complex(dist_btw))
+			end
+			if start2 == 0
+				next_part = next_next_part
+			else
+				next_part = get_log_add(next_part,next_next_part)
+			end
+			start2 += 1
+		end
+		if start == 0
+			logji2prime = next_part
+		else
+			logji2prime = get_log_add(next_part,logji2prime)
+		end
+		start += 1
+	end
+	return logji2prime
+end	
+
+
 function get_log_elem_proj(config,part,row,n,qpart=[0,[0]])
 	num_parts = length(config)
 	matrix_element = [row,part]
 	bar, l = get_wf_elem(num_parts,matrix_element,n,qpart)
-	logJi, logJiprime = get_logJi(config,part), get_logJiprime(config,part)
+	logJi, logJiprime, logJi2prime = get_logJi(config,part), get_logJiprime(config,part), get_logJi2prime(config,part)
 	qpart_shift = qpart[1]
+	lstar2 = 2*1*n + 1
+	coeff = [(1/lstar2) - 1,1/lstar2^2 - 2\lstar2 + 1]
 	if row >= qpart_shift + 1
 		if bar > 0
 			if l == 0
@@ -198,29 +242,70 @@ function get_log_elem_proj(config,part,row,n,qpart=[0,[0]])
 			else
 				a = log(2) + log(l) + (l-1)*log(config[part]) + logJi
 				b = log(2) + l*log(config[part]) + logJiprime
-				result = a + log(1 + exp(b-a))
+				result = get_log_add(a,b)
 			end
 		else
 			result = l*log(config[part]) + logJi
 		end
 	else
-		
+		logetabar = log(conj(qpart[2][row]))
+		log_exppart = get_qpart_wf_exp(config,qpart,row,part,n,false)
+		if n == 1
+			part1 = logetabar + logJi + log(coeff[n])
+			part2 = log(2) + logJiprime
+			result = log_exppart + get_log_add(part1,part2)
+		else
+			part1 = 2*logetabar + logJi + log(coeff[n])
+			part2 = log(4) + logetabar + logJiprime
+			part3 = log(4) + logJi2prime
+			result = log_exppart + get_log_add(part1,get_log_add(part2,part3))
+		end
 	end
 	return result
 end
 
-function get_wavefunc_fromlog(config,n)
+function get_log_det(matrix,reg_input=false)
+	num_parts = size(matrix)[1]
+	maxes = [0.0+0.0*im for i in 1:num_parts]
+	rejected_indices = []
+	starting = matrix
+	#expected_reg_det = det(exp.(matrix))
+	if reg_input
+		#expected_reg_det = det(matrix)
+		starting = log.(matrix)
+	end
+	changed = starting + fill(0.0,(num_parts,num_parts))
+	for i in 1:num_parts
+		allowed_indices = [m for m in 1:num_parts]
+		overlap = [findall(q->q == m,allowed_indices) for m in rejected_indices]
+		true_overlap = sort([overlap[ov][1] for ov in 1:length(overlap)])
+		deleteat!(allowed_indices,true_overlap)
+
+		row = [real(changed[i,j]) for j in allowed_indices]
+		val, local_index = findmax(row)
+		index = findall(q->q == val,real.(changed[i,:]))[1]
+		maxes[i] = changed[i,index]
+		changed[i,:] = [changed[i,j] - maxes[i] for j in 1:num_parts]
+		append!(rejected_indices,index)
+	end
+	final = changed
+	reduced_logdet = sum(maxes) + log(det(exp.(final)))
+	#reduced_regdet = exp(reduced_logdet)
+	return reduced_logdet#,expected_reg_det,reduced_regdet,matrix,starting,final,maxes
+end
+
+
+function get_wavefunc_fromlog(config,n,qpart=[0,[0]])
 	num_parts = length(config)
 	log_matrix = fill(0.0+im*0.0,(num_parts,num_parts))
 	for i in 1:num_parts
-		for j in 1:num_parts	
-			log_matrix[i,j] += get_log_elem_proj(config,j,i,n)
+		for j in 1:num_parts
+			log_matrix[i,j] += get_log_elem_proj(config,j,i,n,qpart)
 		end
 	end
-	reg_matrix = exp.(log_matrix)
-	result = det(reg_matrix)
+	result = get_log_det(log_matrix)
 	for i in 1:num_parts
-		result *= exp(-abs2(config[i])/4)
+		result += -abs2(config[i])/4
 	end
 	return result
 end
