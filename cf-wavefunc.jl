@@ -25,23 +25,25 @@ function get_qpart_wf_exp(config,qpart,which_qpart,part,n,exp_check=true)
 	return result
 end
 
-function get_Jis(config,part,qpart=[0,[0]],qhole=[0,0])
+function get_Jis(config,part,p)
 	ji = 1.0
 	num_parts = length(config)
-	for p in 1:num_parts
-		if p == part
+	for i in 1:num_parts
+		if i == part
 			continue
 		end
-		dist_btw = config[part]-config[p]
-		ji *= dist_btw
+		dist_btw = config[part]-config[i]
+		ji *= dist_btw^p
 	end
+	#=
 	if real(qhole[1]) > 0.1
 		ji *= config[part] - qhole[2]
 	end
+	=#
 	return ji
 end
 
-function get_Jiprime(config,part,qpart=[0,[0]],qhole=[0,0])
+function get_Jiprime(config,part,p)
 	jiprime = 0
 	num_parts = length(config)
 	for j in 1:num_parts
@@ -49,27 +51,26 @@ function get_Jiprime(config,part,qpart=[0,[0]],qhole=[0,0])
 			continue
 		end
 		pos_selected = config[part]
-		jiprime_local = 1
+		jiprime_local = p*(pos_selected - config[j])^(p-1)
 		for k in 1:num_parts
-			if k == part
-				continue
-			end
-			if k == j
+			if k == part || k == j
 				continue
 			end
 			dist_btw = pos_selected - config[k]
-			jiprime_local *= dist_btw
+			jiprime_local *= dist_btw^p
 		end
 		jiprime += jiprime_local
 	end
+	#=
 	if real(qhole[1]) > 0.1
 		jiprime *= config[part] - qhole[2]
 		jiprime += get_Jis(config,part,qhole)
 	end
+	=#
 	return jiprime
 end
 
-function get_Ji2prime(config,part,qpart=[0,[0]],qhole=[0,0])
+function get_Ji2prime(config,part,p)
 	ji2prime = 0
 	num_parts = length(config)
 	for j in 1:num_parts
@@ -98,13 +99,13 @@ function get_Ji2prime(config,part,qpart=[0,[0]],qhole=[0,0])
 	return ji2prime
 end
 
-function get_elem_projection(config,part,row,n,qpart=[0,[0]],qhole=[0,0])
+function get_elem_projection(config,part,row,n,p,qpart=[0,[0]])
 	num_parts = length(config)
 	matrix_element = [row,part]
 	qpart_shift = qpart[1]
-	Ji, Jiprime, Ji2prime = get_Jis(config,part,qhole),get_Jiprime(config,part,qhole),get_Ji2prime(config,part,qhole)
+	Ji, Jiprime, Ji2prime = get_Jis(config,part,p),get_Jiprime(config,part,p),get_Ji2prime(config,part,p)
 	if row >= qpart_shift + 1
-		bar, l = get_wf_elem(num_parts,matrix_element,n)
+		bar, l = get_wf_elem(num_parts,matrix_element,n,p)
 		if bar > 0
 			result = 2*(l*(config[part]^(l-1))*Ji + (config[part]^l)*Jiprime)
 		else
@@ -121,7 +122,7 @@ function get_elem_projection(config,part,row,n,qpart=[0,[0]],qhole=[0,0])
 	return result
 end
 
-function get_wavefunc(config,n,qpart=[0,[0]],qhole=[0,0])
+function get_wavefunc(config,n,p,qpart=[0,[0]])
 	num_parts = length(config)
 	matrix_full = fill(0.0+0.0*im,(num_parts,num_parts))
 	wavefunc = 1.0
@@ -130,7 +131,7 @@ function get_wavefunc(config,n,qpart=[0,[0]],qhole=[0,0])
 			wavefunc *= exp(-abs2(config[i])/4)
 		end
 		for j in 1:num_parts
-			dats = get_elem_projection(config,j,i,n,qpart,qhole)
+			dats = get_elem_projection(config,j,i,n,p,qpart)
 			matrix_full[i,j] = dats
 		end
 	end
@@ -138,15 +139,15 @@ function get_wavefunc(config,n,qpart=[0,[0]],qhole=[0,0])
 	return wavefunc
 end
 
-function get_logJi(config,part)
+function get_logJi(config,part,p)
 	logji = 0.0
 	num_parts = length(config)
-	for p in 1:num_parts
-		if p == part
+	for i in 1:num_parts
+		if i == part
 			continue
 		end
-		dist_btw = config[part]-config[p]
-		logji += log(Complex(dist_btw))
+		dist_btw = config[part]-config[i]
+		logji += p*log(Complex(dist_btw))
 	end
 	return logji
 end
@@ -161,7 +162,7 @@ function get_log_add(a,b)
 	return result
 end
 
-function get_logJiprime(config,part)
+function get_logJiprime(config,part,p)
 	logjiprime = 0.0+im*0.0
 	num_parts = length(config)
 	start = 0
@@ -169,13 +170,13 @@ function get_logJiprime(config,part)
 		if i == part
 			continue
 		end
-		next_part = 0.0+im*0.0
+		next_part = log(Complex(p)) + (p-1)*log(Complex(config[part] - config[i]))
 		for j in 1:num_parts
 			if j == i || j == part
 				continue
 			end
 			dist_btw = config[part] - config[j]
-			next_part += log(Complex(dist_btw))
+			next_part += p*log(Complex(dist_btw))
 		end
 		if start == 0
 			logjiprime += next_part
@@ -187,27 +188,32 @@ function get_logJiprime(config,part)
 	return logjiprime
 end	
 
-function get_logJi2prime(config,part)
-	logji2prime = 0.0+im*0.0
+function get_logJi2prime(config,part,p)
 	num_parts = length(config)
+	logjiprime = get_logJiprime(config,part,p)
+	logji2prime = 0.0+im*0.0
 	start = 0
+	if p > 1
+		logji2prime = log(p-1) + logjiprime
+		start += 1
+	end
 	for i in 1:num_parts
 		if i == part
 			continue
 		end
 		start2 = 0
-		next_part = 0.0+im*0.0
+		next_part = log(p) + (p-1)*log(Complex(config[part] - config[i]))
 		for j in 1:num_parts
 			if j == i || j == part
 				continue
 			end
-			next_next_part = 0.0+im*0.0
+			next_next_part = log(p) + (p-1)*log(Complex(config[part] - config[j]))
 			for m in 1:num_parts
 				if m == i || m == part || m == j
 					continue
 				end
 				dist_btw = config[part] - config[m]
-				next_next_part += log(Complex(dist_btw))
+				next_next_part += p*log(Complex(dist_btw))
 			end
 			if start2 == 0
 				next_part = next_next_part
@@ -221,17 +227,17 @@ function get_logJi2prime(config,part)
 		else
 			logji2prime = get_log_add(next_part,logji2prime)
 		end
-		start += 1
+		logji2prime = get_log_add(logji2prime,-log(Complex(config[part] - config[i])))
 	end
 	return logji2prime
 end	
 
 
-function get_log_elem_proj(config,part,row,n,qpart=[0,[0]])
+function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 	num_parts = length(config)
 	matrix_element = [row,part]
 	bar, l = get_wf_elem(num_parts,matrix_element,n,qpart)
-	logJi, logJiprime, logJi2prime = get_logJi(config,part), get_logJiprime(config,part), get_logJi2prime(config,part)
+	logJi, logJiprime, logJi2prime = get_logJi(config,part,p), get_logJiprime(config,part,p), get_logJi2prime(config,part,p)
 	qpart_shift = qpart[1]
 	lstar2 = 2*1*n + 1
 	coeff = [(1/lstar2) - 1,1/lstar2^2 - 2\lstar2 + 1]
@@ -283,7 +289,8 @@ function get_log_det(matrix,reg_input=false)
 
 		row = [real(changed[i,j]) for j in allowed_indices]
 		val, local_index = findmax(row)
-		index = findall(q->q == val,real.(changed[i,:]))[1]
+		dats = findall(q->q == val,real.(changed[i,:]))
+		index = dats[1]
 		maxes[i] = changed[i,index]
 		changed[i,:] = [changed[i,j] - maxes[i] for j in 1:num_parts]
 		append!(rejected_indices,index)
@@ -295,12 +302,13 @@ function get_log_det(matrix,reg_input=false)
 end
 
 
-function get_wavefunc_fromlog(config,n,qpart=[0,[0]])
+function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 	num_parts = length(config)
 	log_matrix = fill(0.0+im*0.0,(num_parts,num_parts))
 	for i in 1:num_parts
 		for j in 1:num_parts
-			log_matrix[i,j] += get_log_elem_proj(config,j,i,n,qpart)
+			data_here = get_log_elem_proj(config,j,i,n,p,qpart)
+			log_matrix[i,j] += data_here
 		end
 	end
 	result = get_log_det(log_matrix)
