@@ -1,6 +1,5 @@
 using HDF5,LaTeXStrings
 
-#include("cf-wavefunc.jl")
 include("cf-wavefunc.jl")
 
 function write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,data,count)
@@ -26,8 +25,8 @@ function write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,data,count)
 end
 
 
-function start_rand_config(num_parts,n)
-	filling = n/(2*1*n+1)
+function start_rand_config(num_parts,n,p)
+	filling = n/(2*p*n+1)
 	rm = sqrt(2*num_parts/filling)
 	config = [rand(Float64)*rand(-1:2:1)*rm - im*rand(Float64)*rand(-1:2:1)*rm for i in 1:num_parts]
 	return config
@@ -69,8 +68,8 @@ function acc_rej_move(config,n,p,chosen,step_size,qpart=[0,[0]],log_form=false)
 	return "Acceptance Calculation Error"
 end
 
-function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0],log_form=false)
-	running_config = start_rand_config(num_parts,n)
+function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
+	running_config = start_rand_config(num_parts,n,p)
 	samp_freq = Int(0.0001*steps)
 	acc_count = 0
 	therm_time = Int(0.01*steps)
@@ -115,15 +114,15 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0],log_form=f
 end
 
 particles = 4
-mc_steps = 100000
+mc_steps = 10000
 step_size = 0.5
 n = 2
-p = 1
+p = 2
 fill_denom = 2*n*p + 1
 filling = round(n/(2*1*n+1),digits=3)
 rm = 0.1*sqrt(2*particles/filling)
 qpart = [0,[0]]#[1,[0.0+im*0.0]]
-#rezz = main(n,p,mc_steps,particles,step_size,qpart,[0,0])
+rezz = main(n,p,mc_steps,particles,step_size,qpart)
 #write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,rezz,1)
 #=
 plot(real(transpose(rezz)),imag(transpose(rezz)))
@@ -136,8 +135,9 @@ hist2D(xs,ys,bins=100)
 title(latexstring("Histogram with Quasihole and \$ \\nu = $filling \$"))
 =#
 radii = collect(Iterators.flatten([abs2.(rezz[i,:]) for i in 1:particles]))
-hist(radii,bins=100,range=[0,0.0025])
-title(latexstring("Radial Distribution without Quasihole and \$ \\nu = $n / $fill_denom \$"))
+hist(radii,bins=100)
+title_string = ["without Quasiparticle","with Quasihole at Origin"][qpart[1]+1]
+title(latexstring("Radial Distribution $title_string, \$ \\nu = $n / $fill_denom \$"))
 #=
 starting_config = start_rand_config(particles,n)
 data_count = 20

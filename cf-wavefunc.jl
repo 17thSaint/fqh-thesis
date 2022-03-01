@@ -73,27 +73,46 @@ end
 function get_Ji2prime(config,part,p)
 	ji2prime = 0
 	num_parts = length(config)
+	pos_selected = config[part]
 	for j in 1:num_parts
 		if j == part
 			continue
 		end
-		pos_selected = config[part]
 		ji2prime_local = 0
 		for k in 1:num_parts
 			if k == part || k == j
 				continue
 			end
-			ji2prime_local_local = 1
+			ji2prime_local_local = p*(pos_selected - config[k])^(p-1)
 			for m in 1:num_parts
 				if m == part || m == j || m == k
 					continue
 				end
 				dist_btw = pos_selected - config[m]
-				ji2prime_local_local *= dist_btw
+				ji2prime_local_local *= dist_btw^p
 			end
 			ji2prime_local += ji2prime_local_local
 		end
-		ji2prime += ji2prime_local
+		ji2prime += ji2prime_local*p*(pos_selected - config[j])^(p-1)
+	end
+	
+	if p > 1
+		second_part = 0.0+im*0.0
+		for j in 1:num_parts
+			if j == part
+				continue
+			end
+			ji2prime_second_local = p*(p-1)*(pos_selected - config[j])^(p-2)
+			for k in 1:num_parts
+				if k == part || k == j
+					continue
+				end
+				dist_btw = pos_selected - config[k]
+				ji2prime_second_local *= dist_btw^p
+			end
+			second_part += ji2prime_second_local
+		end
+		ji2prime += second_part
 	end
 	
 	return ji2prime
@@ -105,7 +124,7 @@ function get_elem_projection(config,part,row,n,p,qpart=[0,[0]])
 	qpart_shift = qpart[1]
 	Ji, Jiprime, Ji2prime = get_Jis(config,part,p),get_Jiprime(config,part,p),get_Ji2prime(config,part,p)
 	if row >= qpart_shift + 1
-		bar, l = get_wf_elem(num_parts,matrix_element,n,p)
+		bar, l = get_wf_elem(num_parts,matrix_element,n)
 		if bar > 0
 			result = 2*(l*(config[part]^(l-1))*Ji + (config[part]^l)*Jiprime)
 		else
@@ -193,10 +212,6 @@ function get_logJi2prime(config,part,p)
 	logjiprime = get_logJiprime(config,part,p)
 	logji2prime = 0.0+im*0.0
 	start = 0
-	if p > 1
-		logji2prime = log(p-1) + logjiprime
-		start += 1
-	end
 	for i in 1:num_parts
 		if i == part
 			continue
@@ -223,12 +238,38 @@ function get_logJi2prime(config,part,p)
 			start2 += 1
 		end
 		if start == 0
-			logji2prime = next_part
+			logji2prime += next_part
+			start += 1
 		else
 			logji2prime = get_log_add(next_part,logji2prime)
 		end
-		logji2prime = get_log_add(logji2prime,-log(Complex(config[part] - config[i])))
 	end
+	
+	if p > 1
+		start_second = 0
+		second_part = 0.0+im*0.0
+		for i in 1:num_parts
+			if i == part
+				continue
+			end
+			second_next_part = log(Complex(p)) + log(Complex(p-1)) + (p-2)*log(Complex(config[part] - config[i]))
+			for j in 1:num_parts
+				if j == i || j == part
+					continue
+				end
+				dist_btw = config[part] - config[j]
+				second_next_part += p*log(Complex(dist_btw))
+			end
+			if start_second == 0
+				second_part += second_next_part
+			else
+				second_part = get_log_add(second_next_part,logjiprime)
+			end
+			start_second += 1
+		end
+		logji2prime = get_log_add(logji2prime,second_part)
+	end
+	
 	return logji2prime
 end	
 
