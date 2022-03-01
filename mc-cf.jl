@@ -1,29 +1,7 @@
-using HDF5,LaTeXStrings
+using LaTeXStrings
 
 include("cf-wavefunc.jl")
-
-function write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,data,count)
-	println("Starting Data Write")
-	qpart_count = qpart[1]
-	if qpart_count > 0
-		binary_file_pos = h5open("CF-pos-p-$particles-n-$n-qpart-$qpart_count-$count.hdf5","w")
-	else 
-		binary_file_pos = h5open("CF-pos-mc-$mc_steps-p-$particles-n-$n-$count.hdf5","w")
-	end
-	create_group(binary_file_pos,"metadata")
-	metadata = binary_file_pos["metadata"]
-	for i in 1:qpart_count
-		metadata["qpart_position_$i"] = qpart[2][i]
-	end
-	println("Metadata Added")
-	create_group(binary_file_pos,"all-data")
-	alldata = binary_file_pos["all-data"]
-	alldata["deets_x"] = real(data)
-	alldata["deets_y"] = -imag(data)
-	close(binary_file_pos)
-	println("Data Added, File Closed")
-end
-
+include("read-CF-data.jl")
 
 function start_rand_config(num_parts,n,p)
 	filling = n/(2*p*n+1)
@@ -40,29 +18,29 @@ end
 
 function acc_rej_move(config,n,p,chosen,step_size,qpart=[0,[0]],log_form=false)
 	num_parts = length(config)
-	start_ham = abs2(get_wavefunc(config,n,p,qpart))
+	start_wavefunc = get_wavefunc(config,n,p,qpart)
+	start_ham = abs2(start_wavefunc)
 	shift_matrix = move_particle(num_parts,chosen,step_size)
-	#boundary = 3*sqrt(2*num_parts*(2*1*n+1)/n)
-	#if abs2(config[chosen]+shift_matrix[chosen]) > boundary
-	#	return config, 0
-	#end
-	new_ham = abs2(get_wavefunc(config+shift_matrix,n,p,qpart))
+	new_wavefunc = get_wavefunc(config+shift_matrix,n,p,qpart)
+	new_ham = abs2(new_wavefunc)
 	check = new_ham/start_ham
 	rand_num = rand(Float64)
-	
+	#=
 	if log_form
-		start_ham = 2*real(get_wavefunc_fromlog(config,n,p,qpart))
-		new_ham = 2*real(get_wavefunc_fromlog(config+shift_matrix,n,p,qpart))
+		start_wavefunc = get_wavefunc_fromlog(config,n,p,qpart)
+		start_ham = 2*real(start_wavefunc)
+		new_wavefunc = get_wavefunc_fromlog(config+shift_matrix,n,p,qpart)
+		new_ham = 2*real(new_wavefunc)
 		check = new_ham - start_ham
 		rand_num = log(rand_num)*2*0.5
 	end
-	
+	=#
 	if check >= rand_num
 		#println("Accept: ",new_ham,", ",start_ham,", ",rand_num)
-		return config+shift_matrix, 1
+		return config+shift_matrix, 1, new_wavefunc
 	else
 		#println("Reject: ",new_ham,", ",start_ham,", ",rand_num)
-		return config, 0
+		return config, 0, start_wavefunc
 	end
 	
 	return "Acceptance Calculation Error"
@@ -70,12 +48,13 @@ end
 
 function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 	running_config = start_rand_config(num_parts,n,p)
-	samp_freq = Int(0.0001*steps)
+	wavefunc = 0.0+im*0.0
+	samp_freq = 100#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = Int(0.01*steps)
+	therm_time = Int(0.001*steps)
 	collection_time = steps-therm_time
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
-	#energies = [0.0 for i in 1:Int(collection_time/samp_freq)]
+	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
 	index = 1
 	for i_therm in 1:therm_time
 		if i_therm%(therm_time*0.05) == 0
@@ -88,41 +67,44 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 	end
 	println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
-		#println("Calc New Config",DateTime(now()))
 		for j in 1:num_parts
 			movement = acc_rej_move(running_config,n,p,j,step_size,qpart,log_form)
 			acc_count += movement[2]
 			running_config = movement[1]
+			wavefunc = movement[3]
 		end
 		acc_rate = acc_count/(num_parts*i)
-		#println("Found New Config",DateTime(now()))
-		#println("Checking to add Data",DateTime(now()))
 		if i%samp_freq == 0
-			#local_prob = abs2(get_wavefunc(running_config))
-			#energies[index] = local_prob
 			time_config[:,index] = [running_config[x] for x in 1:num_parts]
+			time_wavefunc[index] = wavefunc
 			index += 1
 		end
 		if i%(collection_time*0.05) == 0
 			println("Running:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
-		#println("Data Added",DateTime(now()))
 	end
 	
 
-	return time_config#,energies#,acc_rate
+	return time_config,time_wavefunc
 end
 
-particles = 4
-mc_steps = 10000
+particles = 8
+mc_steps = 100000
 step_size = 0.5
-n = 2
+n = 1
 p = 2
 fill_denom = 2*n*p + 1
 filling = round(n/(2*1*n+1),digits=3)
-rm = 0.1*sqrt(2*particles/filling)
-qpart = [0,[0]]#[1,[0.0+im*0.0]]
-rezz = main(n,p,mc_steps,particles,step_size,qpart)
+rm = sqrt(2*particles/filling)
+for i in 0:9
+	println(i)
+	x_rad = 0.01*rm + i*(1.29*rm)/10
+	qpart = [1,[x_rad+im*0.0]]
+	rezz = main(n,p,mc_steps,particles,step_size,qpart)
+	write_pos_data_hdf5(mc_steps,particles,n,p,rezz,i+1,qpart)
+end
+
+
 #write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,rezz,1)
 #=
 plot(real(transpose(rezz)),imag(transpose(rezz)))
@@ -133,11 +115,12 @@ xs = collect(Iterators.flatten([real(rezz[i,:]) for i in 1:particles]))
 ys = collect(Iterators.flatten([-imag(rezz[i,:]) for i in 1:particles]))
 hist2D(xs,ys,bins=100)
 title(latexstring("Histogram with Quasihole and \$ \\nu = $filling \$"))
-=#
+
 radii = collect(Iterators.flatten([abs2.(rezz[i,:]) for i in 1:particles]))
 hist(radii,bins=100)
 title_string = ["without Quasiparticle","with Quasihole at Origin"][qpart[1]+1]
 title(latexstring("Radial Distribution $title_string, \$ \\nu = $n / $fill_denom \$"))
+=#
 #=
 starting_config = start_rand_config(particles,n)
 data_count = 20
