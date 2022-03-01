@@ -1,5 +1,6 @@
 using HDF5,LaTeXStrings
 
+#include("cf-wavefunc.jl")
 include("cf-wavefunc.jl")
 
 function write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,data,count)
@@ -27,7 +28,7 @@ end
 
 function start_rand_config(num_parts,n)
 	filling = n/(2*1*n+1)
-	rm = sqrt(2*num_parts/filling)/2
+	rm = sqrt(2*num_parts/filling)
 	config = [rand(Float64)*rand(-1:2:1)*rm - im*rand(Float64)*rand(-1:2:1)*rm for i in 1:num_parts]
 	return config
 end
@@ -38,21 +39,21 @@ function move_particle(num_parts,chosen,step_size)
 	return shift_matrix
 end
 
-function acc_rej_move(config,n,chosen,step_size,qpart=[0,[0]],qhole=[0,0],log_form=false)
+function acc_rej_move(config,n,p,chosen,step_size,qpart=[0,[0]],log_form=false)
 	num_parts = length(config)
-	start_ham = abs2(get_wavefunc(config,n,qpart,qhole))
+	start_ham = abs2(get_wavefunc(config,n,p,qpart))
 	shift_matrix = move_particle(num_parts,chosen,step_size)
 	#boundary = 3*sqrt(2*num_parts*(2*1*n+1)/n)
 	#if abs2(config[chosen]+shift_matrix[chosen]) > boundary
 	#	return config, 0
 	#end
-	new_ham = abs2(get_wavefunc(config+shift_matrix,n,qpart,qhole))
+	new_ham = abs2(get_wavefunc(config+shift_matrix,n,p,qpart))
 	check = new_ham/start_ham
 	rand_num = rand(Float64)
 	
 	if log_form
-		start_ham = 2*real(get_wavefunc_fromlog(config,n,qpart))
-		new_ham = 2*real(get_wavefunc_fromlog(config+shift_matrix,n,qpart))
+		start_ham = 2*real(get_wavefunc_fromlog(config,n,p,qpart))
+		new_ham = 2*real(get_wavefunc_fromlog(config+shift_matrix,n,p,qpart))
 		check = new_ham - start_ham
 		rand_num = log(rand_num)*2*0.5
 	end
@@ -68,7 +69,7 @@ function acc_rej_move(config,n,chosen,step_size,qpart=[0,[0]],qhole=[0,0],log_fo
 	return "Acceptance Calculation Error"
 end
 
-function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0],log_form=false)
+function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0],log_form=false)
 	running_config = start_rand_config(num_parts,n)
 	samp_freq = Int(0.0001*steps)
 	acc_count = 0
@@ -82,7 +83,7 @@ function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0],log_form=fal
 			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
 		end
 		for j_therm in 1:num_parts
-			movement = acc_rej_move(running_config,n,j_therm,step_size,qpart,qhole,log_form)
+			movement = acc_rej_move(running_config,n,p,j_therm,step_size,qpart,log_form)
 			running_config = movement[1]
 		end
 	end
@@ -90,7 +91,7 @@ function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0],log_form=fal
 	for i in 1:collection_time
 		#println("Calc New Config",DateTime(now()))
 		for j in 1:num_parts
-			movement = acc_rej_move(running_config,n,j,step_size,qpart,qhole,log_form)
+			movement = acc_rej_move(running_config,n,p,j,step_size,qpart,log_form)
 			acc_count += movement[2]
 			running_config = movement[1]
 		end
@@ -114,13 +115,15 @@ function main(n,steps,num_parts,step_size,qpart=[0,[0]],qhole=[0,0],log_form=fal
 end
 
 particles = 4
-mc_steps = 10000
+mc_steps = 100000
 step_size = 0.5
 n = 2
+p = 1
+fill_denom = 2*n*p + 1
 filling = round(n/(2*1*n+1),digits=3)
 rm = 0.1*sqrt(2*particles/filling)
 qpart = [0,[0]]#[1,[0.0+im*0.0]]
-rezz = main(n,mc_steps,particles,step_size,qpart,[0,0],true)
+#rezz = main(n,p,mc_steps,particles,step_size,qpart,[0,0])
 #write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,rezz,1)
 #=
 plot(real(transpose(rezz)),imag(transpose(rezz)))
@@ -133,7 +136,8 @@ hist2D(xs,ys,bins=100)
 title(latexstring("Histogram with Quasihole and \$ \\nu = $filling \$"))
 =#
 radii = collect(Iterators.flatten([abs2.(rezz[i,:]) for i in 1:particles]))
-hist(radii,bins=100)
+hist(radii,bins=100,range=[0,0.0025])
+title(latexstring("Radial Distribution without Quasihole and \$ \\nu = $n / $fill_denom \$"))
 #=
 starting_config = start_rand_config(particles,n)
 data_count = 20
