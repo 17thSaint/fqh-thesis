@@ -4,7 +4,7 @@ include("read-CF-data.jl")
 include("cf-wavefunc.jl")
 
 
-function get_expval(hdf5_data,chosen_qpart,dtheta)
+function get_expval(n,p,hdf5_data,chosen_qpart,dtheta)
 	qpart_data,pos_data,wavefunc_data = hdf5_data
 	len = length(wavefunc_data)
 	single_qpart_location = qpart_data[2][chosen_qpart]
@@ -25,29 +25,33 @@ end
 
 particles = 8
 mc_steps = 100000
-n = 1
-p = 1
-fill_denom = 2*n*p + 1
-filling = round(n/(2*1*n+1),digits=3)
-rm = sqrt(2*particles/filling)
 top = 10
-rads = [0.0 for i in 1:top]
-berries = [0.0 for i in 1:top]
-errors = [0.0 for i in 1:top]
-for i in 1:top
-	radii_data = read_CF_hdf5("Codes",mc_steps,particles,n,p,i,1)
-	rads[i] = real(radii_data[1][2][1])
-	berry_calc = get_expval(radii_data,1,-0.001)
-	berries[i] = berry_calc[1]
-	errors[i] = berry_calc[2]
+#=
+rads = fill(0.0,(top,3))
+berries = fill(0.0,(top,3))
+errors = fill(0.0,(top,3))
+np_vals = [[1,1],[1,2],[2,1]]
+for j in 1:3
+        n,p = np_vals[j]
+        for i in 1:top 
+            radii_data = read_CF_hdf5("cf-data",mc_steps,particles,n,p,i,1)
+            rads[i,j] = real(radii_data[1][2][1])
+            berry_calc = get_expval(n,p,radii_data,1,-0.001)
+            berries[i,j] = berry_calc[1]
+            errors[i,j] = berry_calc[2]
+        end
 end
-theory_here = rads.*rads./(2 .*(p*2+1))
-plot(rads./rm,theory_here,"-r",label="TH")
-errorbar(rads./rm,-berries,yerr=[errors,errors],fmt="-ko",label="EXP")
+=#
+j = 3
+n,p = np_vals[j]
+fill_denom = 2*p*n + 1
+rm = sqrt(2*particles*fill_denom/n)
+theory_here = rads[:,j].*rads[:,j]./(1*(2*p*n+1))
+plot(rads[:,j]./rm,theory_here,label="~TH")# $n / $fill_denom")
+errorbar(rads[:,j]./rm,-berries[:,j],yerr=[errors[:,j],errors[:,j]],fmt="-o",label="EXP")# $n / $fill_denom")
 legend()
 xlabel("Quasiparticle Radius r/rm")
 title(latexstring("Calculated Berry Phase for \$ \\nu = $n / $fill_denom \$"))
-
 
 
 
