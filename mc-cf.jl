@@ -88,61 +88,23 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 	return time_config,time_wavefunc
 end
 
-particles = 8
-mc_steps = 100000
+particles = 10
+mc_steps = 500000
 step_size = 0.5
-n = 1
-p = 2
+np_vals = [[1,1],[1,2],[2,1]]
+which_np = parse(Int64,ARGS[1])
+n,p = np_vals[which_np]
 fill_denom = 2*n*p + 1
 filling = round(n/(2*1*n+1),digits=3)
 rm = sqrt(2*particles/filling)
 for i in 0:9
-	println(i)
+	println("$n/$fill_denom: ",i)
 	x_rad = 0.01*rm + i*(1.29*rm)/10
-	qpart = [1,[x_rad+im*0.0]]
+	qpart = [2,[x_rad+im*0.0,0.0+im*0.0]]
 	rezz = main(n,p,mc_steps,particles,step_size,qpart)
-	write_pos_data_hdf5(mc_steps,particles,n,p,rezz,i+1,qpart)
+	write_pos_data_hdf5("NA",mc_steps,particles,n,p,rezz,i+1,qpart)
 end
 
-
-#write_pos_data_hdf5(mc_steps,particles,n,step_size,qpart,rezz,1)
-#=
-plot(real(transpose(rezz)),imag(transpose(rezz)))
-for i in 1:length(qpart[2])
-	scatter([real(qpart[2][i])],[imag(qpart[2][i])])
-end
-xs = collect(Iterators.flatten([real(rezz[i,:]) for i in 1:particles]))
-ys = collect(Iterators.flatten([-imag(rezz[i,:]) for i in 1:particles]))
-hist2D(xs,ys,bins=100)
-title(latexstring("Histogram with Quasihole and \$ \\nu = $filling \$"))
-
-radii = collect(Iterators.flatten([abs2.(rezz[i,:]) for i in 1:particles]))
-hist(radii,bins=100)
-title_string = ["without Quasiparticle","with Quasihole at Origin"][qpart[1]+1]
-title(latexstring("Radial Distribution $title_string, \$ \\nu = $n / $fill_denom \$"))
-=#
-#=
-starting_config = start_rand_config(particles,n)
-data_count = 20
-xs = [-1.2*sqrt(2*particles*5/2) + i*(2*1.2*sqrt(2*particles*5/2))/data_count for i in 0:data_count]
-xs_plot = []
-ys_plot = []
-probs = []
-for i in 1:length(xs)
-	local_x = xs[i]
-	for j in 1:length(xs)
-		#println(i,", ",j)
-		local_y = xs[j]
-		append!(xs_plot,[local_x])
-		append!(ys_plot,[local_y])
-		starting_config[1] = local_x - im*local_y
-		prob_local = abs2(get_wavefunc(starting_config,n,qpart)[1])
-		append!(probs,[prob_local])
-	end
-end
-
-scatter3D(xs_plot,ys_plot,probs)
-=#
 
 
 

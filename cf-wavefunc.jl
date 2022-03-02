@@ -108,9 +108,12 @@ function get_Ji2prime(config,part,p)
 					continue
 				end
 				dist_btw = pos_selected - config[k]
-				ji2prime_second_local *= dist_btw^p
+				next = dist_btw^p
+				ji2prime_second_local *= next
+				println("Reg $k $part: ",next)
 			end
 			second_part += ji2prime_second_local
+			println("Reg 2: ",log(second_part))
 		end
 		ji2prime += second_part
 	end
@@ -258,14 +261,18 @@ function get_logJi2prime(config,part,p)
 					continue
 				end
 				dist_btw = config[part] - config[j]
-				second_next_part += p*log(Complex(dist_btw))
+				next = p*log(Complex(dist_btw))
+				second_next_part += next
+				println("Log $j $part: ",exp(next))
 			end
 			if start_second == 0
 				second_part += second_next_part
 			else
-				second_part = get_log_add(second_next_part,logjiprime)
+				local_second = second_part + 0.0
+				second_part = get_log_add(second_next_part,local_second)
 			end
 			start_second += 1
+			println("Log 2: ",second_part)
 		end
 		logji2prime = get_log_add(logji2prime,second_part)
 	end
