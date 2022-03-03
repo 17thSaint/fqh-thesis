@@ -1,4 +1,4 @@
-using HDF5,Statistics,PyPlot
+using Statistics,PyPlot
 
 include("read-CF-data.jl")
 include("cf-wavefunc.jl")
@@ -26,32 +26,66 @@ end
 particles = 8
 mc_steps = 100000
 top = 10
-#=
-rads = fill(0.0,(top,3))
-berries = fill(0.0,(top,3))
-errors = fill(0.0,(top,3))
+#
+rads_1q = fill(0.0,(top,3))
+berries_1q = fill(0.0,(top,3))
+errors_1q = fill(0.0,(top,3))
+rads_2q = fill(0.0,(top,3))
+berries_2q = fill(0.0,(top,3))
+errors_2q = fill(0.0,(top,3))
 np_vals = [[1,1],[1,2],[2,1]]
-for j in 1:3
+for j in 2:2
         n,p = np_vals[j]
         for i in 1:top 
-            radii_data = read_CF_hdf5("cf-data",mc_steps,particles,n,p,i,1)
-            rads[i,j] = real(radii_data[1][2][1])
-            berry_calc = get_expval(n,p,radii_data,1,-0.001)
-            berries[i,j] = berry_calc[1]
-            errors[i,j] = berry_calc[2]
+            #
+            radii_data_1q = read_CF_hdf5("cf-data",mc_steps,particles,n,p,i,1)
+            rads_1q[i,j] = real(radii_data_1q[1][2][1])
+            berry_calc_1q = get_expval(n,p,radii_data_1q,1,-0.001)
+            berries_1q[i,j] = berry_calc_1q[1]
+            errors_1q[i,j] = berry_calc_1q[2]
+            #
+            radii_data_2q = read_CF_hdf5("cf-data",mc_steps,particles,n,p,i,2)
+            rads_2q[i,j] = real(radii_data_2q[1][2][1])
+            berry_calc_2q = get_expval(n,p,radii_data_2q,1,-0.001)
+            berries_2q[i,j] = berry_calc_2q[1]
+            errors_2q[i,j] = berry_calc_2q[2]
         end
 end
-=#
-j = 3
+#
+
+
+j = 2
 n,p = np_vals[j]
+th_coeff_vals = [2,1,1]
+th_coeff = th_coeff_vals[j]
 fill_denom = 2*p*n + 1
-rm = sqrt(2*particles*fill_denom/n)
-theory_here = rads[:,j].*rads[:,j]./(1*(2*p*n+1))
-plot(rads[:,j]./rm,theory_here,label="~TH")# $n / $fill_denom")
-errorbar(rads[:,j]./rm,-berries[:,j],yerr=[errors[:,j],errors[:,j]],fmt="-o",label="EXP")# $n / $fill_denom")
+#rm = sqrt(2*particles*fill_denom/n)
+
+#= direct compare berry phase
+#theory_here_1q = rads_1q[:,j].*rads_1q[:,j]./(th_coeff*(2*p*n+1))
+theory_here_2q_m = rads_2q[:,j].*rads_2q[:,j]./(th_coeff*(2*p*n+1)) - [2*p/(2*p*n + 1) for i in 1:length(rads_2q[:,j])]
+theory_here_2q_p = rads_2q[:,j].*rads_2q[:,j]./(th_coeff*(2*p*n+1)) + [2*p/(2*p*n + 1) for i in 1:length(rads_2q[:,j])]
+#plot(rads_1q[:,j],theory_here_1q,label="~TH 1Q")# $n / $fill_denom")
+plot(rads_2q[:,j],theory_here_2q_m,label="~TH 2Q M")# $n / $fill_denom")
+plot(rads_2q[:,j],theory_here_2q_p,label="~TH 2Q P")# $n / $fill_denom")
+#errorbar(rads_1q[:,j],-berries_1q[:,j],yerr=[errors_1q[:,j],errors_1q[:,j]],fmt="-o",label="1Q")# $n / $fill_denom")
+errorbar(rads_2q[:,j],-berries_2q[:,j],yerr=[errors_2q[:,j],errors_2q[:,j]],fmt="-o",label="2Q")# $n / $fill_denom")
+xlabel("Quasiparticle Radius")
+ylabel("Berry Phase")
+title(latexstring("Berry Phase for \$ \\nu = $n/$fill_denom \$"))
+=#
+
+# compare shift in berry phase with 2QP
+diff = -berries_1q[:,j]+berries_2q[:,j]
+diff_errors = sqrt.(errors_1q[:,j].^2 + errors_2q[:,j].^2)
+theory_diff = [2*p/(2*p*n + 1),-2*p/(2*p*n + 1)]
+errorbar(rads_1q[:,j],diff,yerr=[diff_errors,diff_errors],fmt="-o")
+plot(rads_1q[:,j],[theory_diff[1] for i in 1:length(rads_1q[:,j])],label="TH P")
+plot(rads_1q[:,j],[theory_diff[2] for i in 1:length(rads_1q[:,j])],label="TH M")
 legend()
-xlabel("Quasiparticle Radius r/rm")
-title(latexstring("Calculated Berry Phase for \$ \\nu = $n / $fill_denom \$"))
+xlabel("Quasiparticle Radius")
+title(latexstring("Shift from Enclosed CFQP at \$ \\nu=$n/$fill_denom \$"))
+#
 
 
 
