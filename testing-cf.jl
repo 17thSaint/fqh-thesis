@@ -53,7 +53,7 @@ end;
 	#=
 	coords1[1] = coords1[3]
 	one_Ji_2 = get_Jis(coords1,2,p)
-	one_Ji_2_nop = get_Jis_nop(coords1,1)
+    	#one_Ji_2_nop = get_Jis_nop(coords1,1)
 	one_wavefunc = abs2(get_wavefunc(coords1,n,p))
 	#one_log_wavefunc = abs2(get_wavefunc_fromlog(coords1,n,p))
 	#@test !isapprox(one_wavefunc,0.0,atol=sqrt(eps()))
@@ -67,29 +67,37 @@ end;
 	@test isapprox(two_Ji_2,0.0,atol=sqrt(eps()))
 	two_Ji_3 = get_Jis(coords2,3,p)
 	@test !isapprox(two_Ji_3,0.0,atol=sqrt(eps()))
-	=#
+	
 	one_ji = get_Jis(comp_coords1,1,p)
 	one_jiprime = get_Jiprime(comp_coords1,1,p)
 	two_ji = get_Jis(comp_coords2,1,p)
 	two_jiprime = get_Jiprime(comp_coords2,1,p)
 	num_jiprime = (two_ji - one_ji)/ep
 	@test isapprox(num_jiprime,one_jiprime,atol=10^(-3))
-	#=
+	
 	one_jiprime = get_Jiprime(comp_coords1,1,p)
 	one_ji2prime = get_Ji2prime(comp_coords1,1,p)
 	two_jiprime = get_Jiprime(comp_coords2,1,p)
 	two_ji2prime = get_Ji2prime(comp_coords2,1,p)
 	num_ji2prime = (two_jiprime - one_jiprime)/ep
 	@test isapprox(num_ji2prime,one_ji2prime,atol=10^(-3))
-	=#
+	
 
 	
 	reg_jiprime = get_Jiprime(coords3,1,p)
 	log_jiprime = get_logJiprime(coords3,1,p)
 	@test isapprox(reg_jiprime,exp(log_jiprime),atol=10^(-3))
+	=#
+	
+	rand1 = 10*(rand(Float64)+im*rand(Float64))
+	rand2 = 10*(rand(Float64)+im*rand(Float64) )
+	logadd = get_log_add(rand1,rand2)
+	regadd = log(exp(rand1) + exp(rand2))
+	@test isapprox(logadd,regadd,atol=10^(-3))
 
 	reg_ji2prime = get_Ji2prime(coords3,1,p)
 	log_ji2prime = get_logJi2prime(coords3,1,p)
+	println(log(reg_ji2prime) - log_ji2prime)
 	@test isapprox(reg_ji2prime,exp(log_ji2prime),atol=10^(-3))
 	
 	#=
