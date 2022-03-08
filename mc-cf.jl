@@ -1,4 +1,4 @@
-using LaTeXStrings
+using LaTeXStrings,Statistics
 
 include("cf-wavefunc.jl")
 include("read-CF-data.jl")
@@ -51,7 +51,7 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 	wavefunc = 0.0+im*0.0
 	samp_freq = 100#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = Int(0.001*steps)
+	therm_time = 0#Int(0.0001*steps)
 	collection_time = steps-therm_time
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
@@ -79,7 +79,7 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 			time_wavefunc[index] = wavefunc
 			index += 1
 		end
-		if i%(collection_time*0.05) == 0
+		if i%(collection_time*0.001) == 0
 			println("Running:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
 	end
@@ -88,21 +88,25 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 	return time_config,time_wavefunc
 end
 
-particles = 10
-mc_steps = 500000
+particles = 16
+mc_steps = 10000
 step_size = 0.5
 np_vals = [[1,1],[1,2],[2,1]]
-which_np = parse(Int64,ARGS[1])
-n,p = np_vals[which_np]
-fill_denom = 2*n*p + 1
-filling = round(n/(2*1*n+1),digits=3)
-rm = sqrt(2*particles/filling)
-for i in 0:9
+
+Threads.@threads for i in 1:3
+	which_np = i
+	n,p = np_vals[which_np]
+	fill_denom = 2*n*p + 1
+	filling = n/(2*p*n+1)
+	rm = sqrt(2*particles/filling)
+
 	println("$n/$fill_denom: ",i)
-	x_rad = 0.01*rm + i*(1.29*rm)/10
-	qpart = [2,[x_rad+im*0.0,0.0+im*0.0]]
+	x_rads = [0.01*rm + i*(1.29*rm)/10]
+	rad_choice = parse(Int64,ARGS[1])
+	x_rad = x_rads[rad_choice]
+	qpart = [1,[x_rad+im*0.0]]
 	rezz = main(n,p,mc_steps,particles,step_size,qpart)
-	write_pos_data_hdf5("NA",mc_steps,particles,n,p,rezz,i+1,qpart)
+	write_pos_data_hdf5("cf-data",mc_steps,particles,n,p,rezz,i+1,qpart)
 end
 
 
