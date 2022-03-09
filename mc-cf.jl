@@ -18,14 +18,10 @@ end
 
 function acc_rej_move(config,n,p,chosen,step_size,qpart=[0,[0]],log_form=false)
 	num_parts = length(config)
-	start_wavefunc = get_wavefunc(config,n,p,qpart)
-	start_ham = abs2(start_wavefunc)
 	shift_matrix = move_particle(num_parts,chosen,step_size)
-	new_wavefunc = get_wavefunc(config+shift_matrix,n,p,qpart)
-	new_ham = abs2(new_wavefunc)
-	check = new_ham/start_ham
-	rand_num = rand(Float64)
-	#=
+	rand_num = rand(Float64)	
+
+	#
 	if log_form
 		start_wavefunc = get_wavefunc_fromlog(config,n,p,qpart)
 		start_ham = 2*real(start_wavefunc)
@@ -33,8 +29,14 @@ function acc_rej_move(config,n,p,chosen,step_size,qpart=[0,[0]],log_form=false)
 		new_ham = 2*real(new_wavefunc)
 		check = new_ham - start_ham
 		rand_num = log(rand_num)*2*0.5
+	else
+		start_wavefunc = get_wavefunc(config,n,p,qpart)
+		start_ham = abs2(start_wavefunc)
+		new_wavefunc = get_wavefunc(config+shift_matrix,n,p,qpart)
+		new_ham = abs2(new_wavefunc)
+		check = new_ham/start_ham
 	end
-	=#
+	#
 	if check >= rand_num
 		#println("Accept: ",new_ham,", ",start_ham,", ",rand_num)
 		return config+shift_matrix, 1, new_wavefunc
@@ -80,7 +82,7 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 			index += 1
 		end
 		if i%(collection_time*0.001) == 0
-			println("Running:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
+			println("Running $n $p:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
 	end
 	
@@ -89,24 +91,24 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 end
 
 particles = 16
-mc_steps = 10000
+mc_steps = 1000
 step_size = 0.5
+log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
-
-Threads.@threads for i in 1:3
-	which_np = i
-	n,p = np_vals[which_np]
-	fill_denom = 2*n*p + 1
-	filling = n/(2*p*n+1)
-	rm = sqrt(2*particles/filling)
-
-	println("$n/$fill_denom: ",i)
-	x_rads = [0.01*rm + i*(1.29*rm)/10]
-	rad_choice = parse(Int64,ARGS[1])
+which_np = 1#parse(Int64,ARGS[1])
+n,p = np_vals[which_np]
+fill_denom = 2*n*p + 1
+filling = n/(2*p*n+1)
+rm = sqrt(2*particles/filling)
+x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
+Threads.@threads for k in 1:10
+	println("$n/$fill_denom: ",k)
+	rad_choice = k
 	x_rad = x_rads[rad_choice]
-	qpart = [1,[x_rad+im*0.0]]
-	rezz = main(n,p,mc_steps,particles,step_size,qpart)
-	write_pos_data_hdf5("cf-data",mc_steps,particles,n,p,rezz,i+1,qpart)
+	println(x_rad)
+	qpart = [2,[x_rad+im*0.0,0.0+im*0.0]]
+	rezz = main(n,p,mc_steps,particles,step_size,qpart,log_form)
+	write_pos_data_hdf5("cf-data",mc_steps,particles,n,p,rezz,k,qpart,log_form)
 end
 
 
