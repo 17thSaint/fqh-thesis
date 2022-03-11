@@ -1,5 +1,6 @@
 #import Pkg; Pkg.add("HDF5")
-using HDF5
+#import Pkg; Pkg.add("LinearAlgebra")
+using HDF5,LinearAlgebra
 
 function write_pos_data_hdf5(folder,mc_steps,particles,n,p,data,count,which,qpart=[0,[0]],log_form=false)
 	println("Starting Data Write")
@@ -73,4 +74,64 @@ function read_CF_hdf5(folder,mc_steps,particles,n,p,which,rad_count=1,qpart_coun
 	return full_data
 end
 
+function find_CF_data(particles,n,p,rad_choice,qpart_count,log_form)
+	cd("..")
+	cd("cf-data-pract")
+	file_list = readdir()
+	number = length(file_list)
+	all_data = []
+	for i in 1:number
+		name = file_list[i]
+		separated = split(name,"-")
+		
+		parts_here = parse(Int,separated[6])
+		if parts_here == particles
+			n_here = parse(Int,separated[8])
+			p_here = parse(Int,separated[10])
+			if n_here == n && p_here == p
+				radcount_here = parse(Int,separated[13])
+				if radcount_here == rad_choice
+					qpartcount_here = parse(Int,separated[12])
+					if qpartcount_here == qpart_count
+						which_here = parse(Int,split(separated[end],".")[1])
+						mcsteps_here = parse(Int,separated[4])
+						data_here = read_CF_hdf5("NA",mcsteps_here,parts_here,n_here,p_here,which_here,radcount_here,qpartcount_here,log_form)
+						append!(all_data,[data_here])
+					end
+				end
+			end
+		end	
+	end
+	cd("..")
+	cd("Codes")
+	return all_data
+end
 
+
+function combine_CF_data(all_data,folder)
+	files_count = length(all_data)
+	particles = size(all_data[1][2])[1]
+	qpart_data = all_data[1][1]
+	full_wavefunc_data = []
+	full_pos_data = Matrix{ComplexF64}(undef,particles,0)
+	for i in 1:files_count
+		local_wavefunc_data = all_data[i][3]
+		append!(full_wavefunc_data,local_wavefunc_data)
+		
+		local_pos_data = all_data[i][2]
+		full_pos_data = cat(full_pos_data,local_pos_data,dims=2)
+		println(full_pos_data)
+	end
+	
+	return qpart_data,full_pos_data,full_wavefunc_data
+end
+
+
+
+
+
+
+
+
+
+"fin"
