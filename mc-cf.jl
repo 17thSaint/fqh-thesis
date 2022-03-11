@@ -1,3 +1,4 @@
+#import Pkg; Pkg.add("Statistics")
 using LaTeXStrings,Statistics
 
 include("cf-wavefunc.jl")
@@ -48,13 +49,13 @@ function acc_rej_move(config,n,p,chosen,step_size,qpart=[0,[0]],log_form=false)
 	return "Acceptance Calculation Error"
 end
 
-function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
+function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false)
 	running_config = start_rand_config(num_parts,n,p)
 	wavefunc = 0.0+im*0.0
 	samp_freq = 100#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = 0#Int(0.0001*steps)
-	collection_time = steps-therm_time
+	therm_time = 200#Int(0.0001*steps)
+	collection_time = steps
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
 	index = 1
@@ -81,9 +82,16 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 			time_wavefunc[index] = wavefunc
 			index += 1
 		end
-		if i%(collection_time*0.001) == 0
+		if i%(samp_freq*10) == 0
+			number = Int((index-1)/10)
+			data = [time_config[:,1:index-1],time_wavefunc[1:index-1]]
+			write_pos_data_hdf5("cf-data",steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+		end
+		
+		if i%(collection_time*0.01) == 0
 			println("Running $n $p:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
+		
 	end
 	
 
@@ -91,11 +99,11 @@ function main(n,p,steps,num_parts,step_size,qpart=[0,[0]],log_form=false)
 end
 
 particles = 16
-mc_steps = 1000
+mc_steps = 100000
 step_size = 0.5
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
-which_np = 1#parse(Int64,ARGS[1])
+which_np = parse(Int64,ARGS[1])
 n,p = np_vals[which_np]
 fill_denom = 2*n*p + 1
 filling = n/(2*p*n+1)
@@ -105,10 +113,11 @@ Threads.@threads for k in 1:10
 	println("$n/$fill_denom: ",k)
 	rad_choice = k
 	x_rad = x_rads[rad_choice]
-	println(x_rad)
+	#println(x_rad)
 	qpart = [2,[x_rad+im*0.0,0.0+im*0.0]]
-	rezz = main(n,p,mc_steps,particles,step_size,qpart,log_form)
-	write_pos_data_hdf5("cf-data",mc_steps,particles,n,p,rezz,k,qpart,log_form)
+	#qpart = [1,[x_rad+im*0.0]]
+	rezz = main(n,p,mc_steps,particles,step_size,k,qpart,log_form)
+	#write_pos_data_hdf5("cf-data",mc_steps,particles,n,p,rezz,k,qpart,log_form)
 end
 
 

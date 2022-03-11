@@ -1,4 +1,5 @@
-using LinearAlgebra,PyPlot
+#import Pkg; Pkg.add("LinearAlgebra")
+using LinearAlgebra
 
 function get_wf_elem(num_parts,element,n,qpart=[0,[0]])
 	qpart_shift = qpart[1]
