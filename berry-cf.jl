@@ -13,10 +13,13 @@ function get_expval(n,p,hdf5_data,chosen_qpart,dtheta,log_form=false)
 	for i in 1:len # averaged over a bunch of time slices separated by sampling frequency
 			# sampling frequency found from time autocorrelation: ~100
 		local_config = pos_data[:,i]
-		
+		#dist_to_qpart = abs.(local_config)# .- single_qpart_location)
+		#dist_to_qpart_shifted = abs.(local_config .- qpart_shifted) 
+		#println(dist_to_qpart)#,", ",minimum(dist_to_qpart_shifted))
 		if log_form
 			new_wavefunc = get_wavefunc_fromlog(local_config,n,p,qpart_data)
 			ratio_wavefunc = new_wavefunc - wavefunc_data[i]
+			#println(exp(real(ratio_wavefunc)),", ",sin(imag(ratio_wavefunc)),", ",i)
 			calced_vals[i] = exp(real(ratio_wavefunc))*sin(imag(ratio_wavefunc))/dtheta
 			#println(calced_vals[i])
 		else
@@ -30,10 +33,13 @@ function get_expval(n,p,hdf5_data,chosen_qpart,dtheta,log_form=false)
 	return final_val,val_error
 end
 
+
 particles = 16
-mc_steps = 1000
+#mc_steps = 1000
 top = 10
 #
+which = 1
+repeat_count = 2
 rads_1q = fill(0.0,(top,3))
 berries_1q = fill(0.0,(top,3))
 errors_1q = fill(0.0,(top,3))
@@ -43,23 +49,27 @@ errors_2q = fill(0.0,(top,3))
 np_vals = [[1,1],[1,2],[2,1]]
 for j in 1:1
         n,p = np_vals[j]
-        for i in 1:top 
-            #=
-            radii_data_1q = read_CF_hdf5("cf-data",mc_steps,particles,n,p,i,1)
-            rads_1q[i,j] = real(radii_data_1q[1][2][1])
-            berry_calc_1q = get_expval(n,p,radii_data_1q,1,-0.001)
-            berries_1q[i,j] = berry_calc_1q[1]
-            errors_1q[i,j] = berry_calc_1q[2]
-            =#
-            radii_data_2q = read_CF_hdf5("cf-data",mc_steps,particles,n,p,i,2,true)
-            rads_2q[i,j] = real(radii_data_2q[1][2][1])
-            berry_calc_2q = get_expval(n,p,radii_data_2q,1,-0.001,true)
-            berries_2q[i,j] = berry_calc_2q[1]
-            errors_2q[i,j] = berry_calc_2q[2]
+        for i in 1:top
+		#=
+		radii_data_1q = read_comb_CF_hdf5("cf-data",particles,n,p,i,1,true)
+		rads_1q[i,j] = real(radii_data_1q[1][2][1])
+		berry_calc_1q = get_expval(n,p,radii_data_1q,1,-0.001)
+		berries_1q[i,j] = berry_calc_1q[1]
+		errors_1q[i,j] = berry_calc_1q[2]
+		=#
+		println("Rad $i")
+		radii_data_2q = read_comb_CF_hdf5("cf-data",particles,n,p,i,2,true)
+		rads_2q[i,j] = real(radii_data_2q[1][2][1])
+		berry_calc_2q = get_expval(n,p,radii_data_2q,1,-0.001,true)
+		berries_2q[i,j] = berry_calc_2q[1]
+		errors_2q[i,j] = berry_calc_2q[2]
+		#
         end
 end
 #
 
+# 16 parts 2 qparts 1000 mcs 1/3 rad 7 ver 1, has particle stuck near origin qpart causing bad berry calc
+# rad 2 ver 2 has first particle stuck too, same rad 5 and rad 9
 
 j = 1
 n,p = np_vals[j]
