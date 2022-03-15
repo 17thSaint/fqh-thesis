@@ -51,6 +51,9 @@ end
 
 function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false)
 	running_config = start_rand_config(num_parts,n,p)
+	filling = n/(2*p*n+1)
+	rm = sqrt(2*particles/filling)
+	lstar = sqrt(2*p*n+1)
 	wavefunc = 0.0+im*0.0
 	samp_freq = 100#Int(steps/samp_count)
 	acc_count = 0
@@ -80,12 +83,43 @@ function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=fal
 		if i%samp_freq == 0
 			time_config[:,index] = [running_config[x] for x in 1:num_parts]
 			time_wavefunc[index] = wavefunc
+			for k in 1:num_parts
+				#println(index,", ",i)
+				for q in 1:qpart[1]
+					escape_attempts = 0
+					while abs(time_config[k,index] - qpart[2][q]) <= lstar*0.01
+						if escape_attempts == 0
+							println("Particle $k too close to QPart $q")
+						end
+						get_out = acc_rej_move(running_config,n,p,k,rm/2,qpart,log_form)
+						running_config = get_out[1]
+						escape_attempts += 1
+					end
+					if escape_attempts > 0
+						println("Particle $k Away after $escape_attempts attempts")
+					end
+				end
+				if i > 100 && abs(time_config[k,index-1] - time_config[k,index]) <= lstar*0.01
+					got_away = 0
+					escape_attempts = 0
+					println("Particle $k Stuck")
+					while got_away < 0.5
+						get_out = acc_rej_move(running_config,n,p,k,rm/2,qpart,log_form)
+						running_config = get_out[1]
+						escape_attempts += 1
+						got_away = get_out[2]
+					end
+					println("Particle $k Free after $escape_attempts attempts")
+				end
+			end
+			time_config[:,index] = [running_config[x] for x in 1:num_parts]
+			time_wavefunc[index] = wavefunc
 			index += 1
 		end
 		if i%(samp_freq*10) == 0
 			number = Int((index-1)/10)
-			data = [time_config[:,1:index-1],time_wavefunc[1:index-1]]
-			write_pos_data_hdf5("cf-data",steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+			#data = [time_config[:,index-10:index-1],time_wavefunc[index-10:index-1]]
+			#write_pos_data_hdf5("cf-data-pract",steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
 		
 		if i%(collection_time*0.01) == 0
@@ -98,27 +132,51 @@ function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=fal
 	return time_config,time_wavefunc
 end
 
-particles = 16
-mc_steps = 100000
+particles = 6
+mc_steps = 10000
 step_size = 0.5
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
-which_np = parse(Int64,ARGS[1])
+which_np = 1#parse(Int64,ARGS[1])
 n,p = np_vals[which_np]
 fill_denom = 2*n*p + 1
 filling = n/(2*p*n+1)
 rm = sqrt(2*particles/filling)
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
-Threads.@threads for k in 1:10
+#for k in 5:5#Threads.@threads for k in 1:10
+k = 5
 	println("$n/$fill_denom: ",k)
 	rad_choice = k
 	x_rad = x_rads[rad_choice]
 	#println(x_rad)
-	qpart = [2,[x_rad+im*0.0,0.0+im*0.0]]
+qpart_choice = [[1,[x_rad+im*0.0]],[0,[0.0]]]#[2,[x_rad+im*0.0,0.0+im*0.0]]]
+include("density-CFQP.jl")
+#
+full_datas = []
+for this in 1:2
+	qpart = qpart_choice[this]
+	#qpart = [2,[x_rad+im*0.0,0.0+im*0.0]]
 	#qpart = [1,[x_rad+im*0.0]]
 	rezz = main(n,p,mc_steps,particles,step_size,k,qpart,log_form)
 	#write_pos_data_hdf5("cf-data",mc_steps,particles,n,p,rezz,k,qpart,log_form)
+#end
+full_data = qpart,rezz[1],rezz[2]
+append!(full_datas,[full_data])
+
 end
+#
+densities = []
+for this in 1:2
+	full_data = full_datas[this]
+	dens_data = get_density(particles,n,p,full_data,100)
+	append!(densities,[dens_data])
+end
+#
+plot(densities[1][1]./rm,densities[1][2],label="1Q")
+plot(densities[2][1]./rm,densities[2][2],label="0Q")
+scatter([real(qpart_choice[1][2][1])]./rm,[densities[1][2][1]],c="r")
+legend()
+
 
 
 
