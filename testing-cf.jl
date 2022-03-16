@@ -14,17 +14,10 @@ end
 =#
 
 
+n = 1
+p = 1
 
 
-n = 2
-p = 2
-coords3 = 10*(rand(4) + im*rand(4))
-coords1 = rand(4)
-coords2 = rand(4)
-comp_coords1 = rand(4) + im*rand(4)
-ep = 10^(-5)
-comp_coords2 = comp_coords1 .+ 0.0
-comp_coords2[1] += ep
 #=
 @testset "compare no p" begin
 	for i in 1:4
@@ -50,7 +43,17 @@ comp_coords2[1] += ep
 end;
 =#
 @testset "all" begin
+
+	coords3 = 10*(rand(4) + im*rand(4))
+	coords4 = 10*(rand(4) + im*rand(4))
+	coords1 = rand(4)
+	coords2 = rand(4)
+	comp_coords1 = rand(4) + im*rand(4)
+	ep = 10^(-5)
+	comp_coords2 = comp_coords1 .+ 0.0
+	comp_coords2[1] += ep
 	
+	# testing that when particles overlap Ji goes to zero
 	coords1[1] = coords1[3]
 	one_Ji_2 = get_Jis(coords1,2,p)
     	#one_Ji_2_nop = get_Jis_nop(coords1,1)
@@ -68,6 +71,7 @@ end;
 	two_Ji_3 = get_Jis(coords2,3,p)
 	@test !isapprox(two_Ji_3,0.0,atol=sqrt(eps()))
 	
+	# testing that ji prime is the numerical derivative of ji
 	one_ji = get_Jis(comp_coords1,1,p)
 	one_jiprime = get_Jiprime(comp_coords1,1,p)
 	two_ji = get_Jis(comp_coords2,1,p)
@@ -75,6 +79,7 @@ end;
 	num_jiprime = (two_ji - one_ji)/ep
 	@test isapprox(num_jiprime,one_jiprime,atol=10^(-3))
 	
+	# testing that ji2prime is numerical derivative of jiprime
 	one_jiprime = get_Jiprime(comp_coords1,1,p)
 	one_ji2prime = get_Ji2prime(comp_coords1,1,p)
 	two_jiprime = get_Jiprime(comp_coords2,1,p)
@@ -83,24 +88,32 @@ end;
 	@test isapprox(num_ji2prime,one_ji2prime,atol=10^(-3))
 	
 
-	
+	# testing that jiprime is same for reg and log versions
 	reg_jiprime = get_Jiprime(coords3,1,p)
 	log_jiprime = get_logJiprime(coords3,1,p)
 	@test isapprox(reg_jiprime,exp(log_jiprime),atol=10^(-3))
 	#
 	
+	# testing log addition
 	rand1 = 10*(rand(Float64)+im*rand(Float64))
 	rand2 = 10*(rand(Float64)+im*rand(Float64) )
 	logadd = get_log_add(rand1,rand2)
 	regadd = log(exp(rand1) + exp(rand2))
 	@test isapprox(real(logadd),real(regadd),atol=10^(-2))
-	modpi = (abs(imag(logadd))+abs(imag(regadd)))/pi
+	if imag(logadd) > 0 && imag(regadd) > 0
+		modpi = (abs(imag(logadd))-abs(imag(regadd)))/pi
+	elseif imag(logadd) < 0 && imag(regadd) < 0
+		modpi = (abs(imag(logadd))-abs(imag(regadd)))/pi
+	else
+		modpi = (abs(imag(logadd))+abs(imag(regadd)))/pi
+	end
 	rounded = round(modpi,digits=0)
+	#println(logadd,", ",regadd)
 	@test isapprox(modpi,rounded,atol=10^(-1))
 	
+	# testing that ji2prime is the same reg vs log
 	reg_ji2prime = log(get_Ji2prime(coords3,1,p))
 	log_ji2prime = get_logJi2prime(coords3,1,p)
-	
 	if imag(log_ji2prime) > 0 && imag(reg_ji2prime) > 0
 		modpi_ji2prime = (imag(log_ji2prime) - imag(reg_ji2prime))/pi
 	elseif imag(log_ji2prime) < 0 && imag(reg_ji2prime) < 0
@@ -112,7 +125,7 @@ end;
 	@test isapprox(real(reg_ji2prime),real(log_ji2prime),atol=10^(-2))
 	@test isapprox(modpi_ji2prime,rounded_ji2prime,atol=10^(-1))
 	
-	#
+	# testing element of matrix same for reg and log
 	for i in 1:4
 	for j in 1:4
 	log_element = get_log_elem_proj(coords3,i,j,n,p)
@@ -121,16 +134,25 @@ end;
 	end
 	end
 	
+	# testing wavefunction is same reg and log
 	reg_wavefunc = get_wavefunc(coords3,n,p)
 	log_wavefunc = get_wavefunc_fromlog(coords3,n,p)
 	@test isapprox(reg_wavefunc,exp(log_wavefunc),atol=10^(-3))
 	
-	
+	# testing wavefunction is same for reg and log with quasiparticles
 	qpart_test = [2,[rand(Float64)+im*rand(Float64),rand(Float64)+im*rand(Float64)]]
-	reg_wavefunc = get_wavefunc(coords3,n,p)
-	log_wavefunc = get_wavefunc_fromlog(coords3,n,p)
+	reg_wavefunc = get_wavefunc(coords3,n,p,qpart_test)
+	log_wavefunc = get_wavefunc_fromlog(coords3,n,p,qpart_test)
 	@test isapprox(reg_wavefunc,exp(log_wavefunc),atol=10^(-3))
-	#
+	
+	# testing particle overlapping quasiparticle is zero reg form
+	coords4[1] == qpart_test[2][1]
+	qpart_overlap_wavefunc = get_wavefunc(coords4,n,p,qpart_test)
+	@test isapprox(qpart_overlap_wavefunc,0.0,atol=10^(-5))
+	
+	# testing particle overlapping quasiparticle is zero log form
+	qpart_overlap_wavefunc_log = get_wavefunc_fromlog(coords4,n,p,qpart_test)
+	@test isapprox(exp(qpart_overlap_wavefunc_log),0.0,atol=10^(-5))
 end;
 
 
