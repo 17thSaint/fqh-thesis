@@ -1,5 +1,5 @@
 #import Pkg; Pkg.add("Statistics")
-using LaTeXStrings,Statistics
+using LaTeXStrings,Statistics,PyPlot
 
 include("cf-wavefunc.jl")
 include("read-CF-data.jl")
@@ -55,7 +55,7 @@ function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=fal
 	rm = sqrt(2*particles/filling)
 	lstar = sqrt(2*p*n+1)
 	wavefunc = 0.0+im*0.0
-	samp_freq = 100#Int(steps/samp_count)
+	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
 	therm_time = 200#Int(0.0001*steps)
 	collection_time = steps
@@ -87,25 +87,28 @@ function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=fal
 				#println(index,", ",i)
 				for q in 1:qpart[1]
 					escape_attempts = 0
-					while abs(time_config[k,index] - qpart[2][q]) <= lstar*0.01
+					while abs(running_config[k] - qpart[2][q]) <= lstar*0.001
 						if escape_attempts == 0
 							println("Particle $k too close to QPart $q")
 						end
 						get_out = acc_rej_move(running_config,n,p,k,rm/2,qpart,log_form)
 						running_config = get_out[1]
+						wavefunc = get_out[3]
 						escape_attempts += 1
 					end
 					if escape_attempts > 0
 						println("Particle $k Away after $escape_attempts attempts")
 					end
 				end
-				if i > 100 && abs(time_config[k,index-1] - time_config[k,index]) <= lstar*0.01
+				#
+				if i > 100 && abs(time_config[k,index-100] - running_config[k]) <= lstar*0.001
 					got_away = 0
 					escape_attempts = 0
 					println("Particle $k Stuck")
 					while got_away < 0.5
 						get_out = acc_rej_move(running_config,n,p,k,rm/2,qpart,log_form)
 						running_config = get_out[1]
+						wavefunc = get_out[3]
 						escape_attempts += 1
 						got_away = get_out[2]
 					end
@@ -133,11 +136,16 @@ function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=fal
 end
 
 particles = 6
-mc_steps = 10000
+mc_steps = 100000
 step_size = 0.5
-log_form = true
+log_form = false
 np_vals = [[1,1],[1,2],[2,1]]
-which_np = 1#parse(Int64,ARGS[1])
+#all_full_datas = [[],[],[]]
+#all_full_dens = [[],[],[]]
+include("density-CFQP.jl")
+dens_count = 200
+for nps in 3:3
+which_np = nps#parse(Int64,ARGS[1])
 n,p = np_vals[which_np]
 fill_denom = 2*n*p + 1
 filling = n/(2*p*n+1)
@@ -145,41 +153,53 @@ rm = sqrt(2*particles/filling)
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 #for k in 5:5#Threads.@threads for k in 1:10
 k = 5
-	println("$n/$fill_denom: ",k)
-	rad_choice = k
-	x_rad = x_rads[rad_choice]
+println("$n/$fill_denom: ",k)
+rad_choice = k
+x_rad = x_rads[rad_choice]
 	#println(x_rad)
-qpart_choice = [[1,[x_rad+im*0.0]],[0,[0.0]]]#[2,[x_rad+im*0.0,0.0+im*0.0]]]
-include("density-CFQP.jl")
-#
-full_datas = []
+qpart_choice = [[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
 for this in 1:2
 	qpart = qpart_choice[this]
 	#qpart = [2,[x_rad+im*0.0,0.0+im*0.0]]
 	#qpart = [1,[x_rad+im*0.0]]
-	rezz = main(n,p,mc_steps,particles,step_size,k,qpart,log_form)
+#	rezz = main(n,p,mc_steps,particles,step_size,k,qpart,log_form)
 	#write_pos_data_hdf5("cf-data",mc_steps,particles,n,p,rezz,k,qpart,log_form)
 #end
-full_data = qpart,rezz[1],rezz[2]
-append!(full_datas,[full_data])
+
+#full_data = qpart,rezz[1],rezz[2]
+#append!(all_full_datas[nps],[full_data])
+
+
+#
+#array_data = Iterators.flatten([full_datas[2][2][i,:] for i in 1:particles])#Iterators.flatten([only_no_overlaps_data[2][i,:] for i in 2:particles])
+#hist2D(real.(array_data),-imag.(array_data),bins=100)
+
+#
+	full_data = all_full_datas[nps][this]
+	dens_data = get_density(particles,n,p,full_data,dens_count)
+	#append!(all_full_dens[nps],[dens_data])
+	all_full_dens[nps][this] = dens_data
 
 end
-#
-densities = []
-for this in 1:2
-	full_data = full_datas[this]
-	dens_data = get_density(particles,n,p,full_data,100)
-	append!(densities,[dens_data])
+	bots = [1,1,1]# 1/3 10/100
+	tops = [dens_count,dens_count,dens_count]# 1/3 60/100
+	bot = bots[nps]
+	top = tops[nps]
+	plot(all_full_dens[nps][1][1][bot:top]./rm,all_full_dens[nps][1][2][bot:top],label="1QP")
+	plot(all_full_dens[nps][2][1][bot:top]./rm,all_full_dens[nps][2][2][bot:top],label="2QP")
+	#scatter([real(qpart_choice[1][2][1])]./rm,[all_full_dens[nps][1][2][1]],label="$n-$p")
+	legend()
+	xlabel("X-Position")
+	ylabel("Particle Count Density")
+	title(latexstring("Density for N=$particles at \$ \\nu = $n/$fill_denom\$"))
 end
 #
-plot(densities[1][1]./rm,densities[1][2],label="1Q")
-plot(densities[2][1]./rm,densities[2][2],label="0Q")
-scatter([real(qpart_choice[1][2][1])]./rm,[densities[1][2][1]],c="r")
-legend()
 
-
-
-
+#=
+oneq_location = densities[1][1][findall(qw->qw==minimum(densities[1][2][bot:top]),densities[1][2])[1]]
+twoq_location = densities[2][1][findall(qw->qw==minimum(densities[2][2][bot:top]),densities[2][2])[1]]
+squared_diff = (twoq_location^2 - oneq_location^2)/4
+=#
 
 
 "fin"
