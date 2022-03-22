@@ -2,6 +2,7 @@ using Statistics,PyPlot
 
 include("read-CF-data.jl")
 include("cf-wavefunc.jl")
+include("mc-cf.jl")
 
 function get_density(particles,n,p,hdf5_data,data_count)
 	rm = sqrt(2*particles*(2*p*n+1)/n)
@@ -27,51 +28,70 @@ function get_density(particles,n,p,hdf5_data,data_count)
 	    
 	    change_counts[k] = (local_count - previous_count)/total_possible_counts
 	    previous_count = local_count
-	    #=
-	    local_denss = [0.0 for q in 1:length(wavefunc_data)]
-	    for i in 1:length(wavefunc_data)
-		xpos = real.(pos_data[:,i])
-		ypos = -imag.(pos_data[:,i])
-		local_count = 0
-		for j in 1:length(xpos)
-		    if xpos[j] <= edge && xpos[j] >= 0.0 && ypos[j] <= 0.1*rm && ypos[j] > -0.1*rm
-		        local_count += 1
-		    end
-		end
-		local_denss[i] = local_count#/(pi*edge^2)
-	    end
-	    dens_val[k] = mean(local_denss)
-	    errors[k] = std(local_denss)
-	    =#
 	end
 	return xs,change_counts
 end
 
-#=
+#
 particles = 16
-mc_steps = 100000
-qpart_count = 2
+mc_steps = 10000
 np_vals = [[1,1],[1,2],[2,1]]
 which = 1
 n,p = np_vals[which]
-#
 fill_denom = 2*n*p + 1
 rm = sqrt(2*particles*fill_denom/n)
-#for i in 5:5
+#=
+x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 rad_choice = 5
-#hdf5_data = read_CF_hdf5("cf-data",mc_steps,particles,n,p,1,rad_choice,qpart_count,false)
-hdf5_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,qpart_count,true)
-only_no_overlaps_data = [hdf5_data[1],hdf5_data[2][:,1001:end],hdf5_data[3][1001:end]]
-#array_data = Iterators.flatten([hdf5_data[2][i,:] for i in 2:particles])#Iterators.flatten([only_no_overlaps_data[2][i,:] for i in 2:particles])
+x_rad = x_rads[rad_choice]
+=#
+qpart = [0,[2.0+im*0.0]]
+#qp2_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,2,true)
+#qp1_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,1,true)
+
+xs_plot = []
+ys_plot = []
+data_count = 31
+starting_config = start_rand_config(particles,n,p)#1 .*qp1_data[2][:,3800]
+xs = [-1.1*rm + i*(2*1.1*rm)/data_count for i in 0:data_count]
+exp_prob = []#Matrix{ComplexF64}(undef,particles,particles)
+for i in 1:length(xs)
+	println(i/length(xs))
+	local_x = xs[i]
+	for j in 1:length(xs)
+		#println(i,", ",j)
+		local_y = xs[j] 
+		append!(xs_plot,[local_x])
+		append!(ys_plot,[local_y])
+		starting_config[1] = local_x - im*local_y
+		exp_prob_local = 2*real(get_wavefunc_fromlog(starting_config,n,p,false,qpart))
+		append!(exp_prob,[exp_prob_local])
+	end
+end
+
+scatter3D(xs_plot,ys_plot,exp_prob./maximum(exp_prob),label="$particles")
+#sleep(2.0)
+
+legend()
+xlabel("X")
+ylabel("Y")
+#
+
+
+
+
+#array_data = Iterators.flatten([qp1_data[2][i,:] for i in 1:1])#Iterators.flatten([only_no_overlaps_data[2][i,:] for i in 2:particles])
 #hist2D(real.(array_data),-imag.(array_data),bins=100)
 #
-dens_data = get_density(particles,n,p,only_no_overlaps_data,100)
-qpart_location = hdf5_data[1][2][1]
+#dens_data_1q = get_density(particles,n,p,qp1_data,200)
+#dens_data_2q = get_density(particles,n,p,qp2_data,200)
+#qpart_location = qp1_data[1][2][1]
 #
-plot(dens_data[1]./rm,dens_data[2],label="$rad_choice")#"$n/$fill_denom")
-scatter([real(qpart_location)]./rm,[dens_data[2][1]],label="$rad_choice")
-legend()
+#plot(dens_data_1q[1]./rm,dens_data_1q[2],label="1-QP")#"$n/$fill_denom")
+#plot(dens_data_2q[1]./rm,dens_data_2q[2],label="2-QP")#"$n/$fill_denom")
+#scatter([real(qpart_location)]./rm,[dens_data_1q[2][1]],label="QP")
+#legend()
 #end
-=#
+#
 
 "fin"

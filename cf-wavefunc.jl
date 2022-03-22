@@ -336,6 +336,7 @@ function get_log_det(matrix,reg_input=false)
 		row = [real(changed[i,j]) for j in allowed_indices]
 		val, local_index = findmax(row)
 		dats = findall(q->q == val,real.(changed[i,:]))
+		#println(dats,", ",i,", ",val,", ",real.(changed))
 		index = dats[1]
 		maxes[i] = changed[i,index]
 		changed[i,:] = [changed[i,j] - maxes[i] for j in 1:num_parts]
@@ -354,14 +355,23 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 	for i in 1:num_parts
 		for j in 1:num_parts
 			data_here = get_log_elem_proj(config,j,i,n,p,qpart)
+			#=
+			if check && isnan(data_here)
+				println(config,", ",j,", ",i)
+				break
+			end
+			=#
 			log_matrix[i,j] += data_here
 		end
 	end
+	#return log_matrix
+	#
 	result = get_log_det(log_matrix)
 	for i in 1:num_parts
 		result += -abs2(config[i])/4
 	end
 	return result
+	#
 end
 
 
