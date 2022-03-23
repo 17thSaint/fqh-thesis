@@ -298,13 +298,16 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 			end
 		else
 			result = l*log(config[part]) + logJi
+			#if row == 2 && part == 1
+			#	println(log(config[part]),", ",logJi)
+			#end
 		end
 	else
 		logetabar = log(conj(qpart[2][row]))
 		log_exppart = get_qpart_wf_exp(config,qpart,row,part,n,false)
 		if n == 1
-			part1 = logetabar + logJi + log(Complex(coeff[n]))
-			part2 = log(2) + logJiprime
+			part1 = logetabar + log(Complex(coeff[n])) #+ logJi
+			part2 = log(2) #+ logJiprime
 			result = log_exppart + get_log_add(part1,part2)
 		else
 			part1 = 2*logetabar + logJi + log(Complex(coeff[n]))
@@ -321,6 +324,7 @@ function get_log_det(matrix,reg_input=false)
 	maxes = [0.0+0.0*im for i in 1:num_parts]
 	rejected_indices = []
 	starting = matrix
+	all_equal_count = 0
 	#expected_reg_det = det(exp.(matrix))
 	if reg_input
 		#expected_reg_det = det(matrix)
@@ -331,13 +335,19 @@ function get_log_det(matrix,reg_input=false)
 		allowed_indices = [m for m in 1:num_parts]
 		overlap = [findall(q->q == m,allowed_indices) for m in rejected_indices]
 		true_overlap = sort([overlap[ov][1] for ov in 1:length(overlap)])
+		#println(true_overlap)
 		deleteat!(allowed_indices,true_overlap)
 
 		row = [real(changed[i,j]) for j in allowed_indices]
 		val, local_index = findmax(row)
 		dats = findall(q->q == val,real.(changed[i,:]))
-		#println(dats,", ",i,", ",val,", ",real.(changed))
 		index = dats[1]
+		#println(length(dats),", ",length(allowed_indices)+i-1)
+		if length(dats) == length(allowed_indices) + i - 1
+			all_equal_count += 1
+			index = all_equal_count
+			println("Row All Equal: $i")
+		end
 		maxes[i] = changed[i,index]
 		changed[i,:] = [changed[i,j] - maxes[i] for j in 1:num_parts]
 		append!(rejected_indices,index)
@@ -355,22 +365,22 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 	for i in 1:num_parts
 		for j in 1:num_parts
 			data_here = get_log_elem_proj(config,j,i,n,p,qpart)
-			#=
-			if check && isnan(data_here)
-				println(config,", ",j,", ",i)
-				break
+			#
+			if isnan(data_here)
+				println(j,", ",i)
+			#	break
 			end
-			=#
+			#
 			log_matrix[i,j] += data_here
 		end
 	end
-	#return log_matrix
+	#println(log_matrix[1,2])
 	#
 	result = get_log_det(log_matrix)
 	for i in 1:num_parts
 		result += -abs2(config[i])/4
 	end
-	return result
+	return result#,log_matrix
 	#
 end
 
