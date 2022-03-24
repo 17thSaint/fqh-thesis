@@ -306,12 +306,21 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 				result = get_log_add(a,b)
 			end
 		else
+			if l == 0
+				result = 0.0
+			else
+				result = l*log(config[part])
+			end
+		end
+		#=
+		else
 			if l == 0 # bc log(config[part]) neg infty bad w/ zero
 				result = logJi
 			else
 				result = l*log(config[part]) + logJi
 			end
 		end
+		=#
 	else
 		logetabar = log(conj(qpart[2][row]))
 		log_exppart = get_qpart_wf_exp(config,qpart,row,part,n,false)
@@ -387,6 +396,9 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 	#println(log_matrix[1,2])
 	#
 	result = get_log_det(log_matrix)
+	
+	result += p*get_logJastrowfull(config)
+
 	#for i in 1:num_parts
 	#	result += -abs2(config[i])/4
 	#end
