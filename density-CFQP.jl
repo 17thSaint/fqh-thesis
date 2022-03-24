@@ -37,7 +37,7 @@ particles = 12
 mc_steps = 10000
 np_vals = [[1,1],[1,2],[2,1]]
 which = 1
-n,p = 1,0#np_vals[which]
+n,p = 1,1#np_vals[which]
 fill_denom = 2*n*p + 1
 rm = sqrt(2*particles*fill_denom/n)
 #=
@@ -45,60 +45,96 @@ x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 rad_choice = 5
 x_rad = x_rads[rad_choice]
 =#
-qpart = [0,[1.0+im*0.0]]
+qpart = [0,[3.0+im*3.0]]
 #qp2_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,2,true)
 #qp1_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,1,true)
 #
 xs_plot = []
 ys_plot = []
-data_count = 25
+data_count = 30
 starting_config = start_rand_config(particles,n,p)#1 .*qp1_data[2][:,3800]
 parts_xs = real.(starting_config[2:end])
 parts_ys = -imag.(starting_config[2:end])
 #scatter3D(parts_xs,parts_ys,[1.0 for i in 1:particles-1],c="r")
-xs = [-0.001*rm + i*(2*0.001*rm)/data_count for i in 1:data_count]
-exp_prob = []
-reg_prob = []
-logjis = []
-part1 = []
-givematrix = [fill(0.0+im*0.0,(particles,particles))]
+xs = [-0.5*rm + i*(2*0.5*rm)/data_count for i in 1:data_count]
+#exp_prob = []
+#reg_prob = []
+logjast = fill(0.0+im*0.0,(data_count,data_count))
+logj1 = fill(0.0+im*0.0,(data_count,data_count))
+logslater = fill(0.0+im*0.0,(data_count,data_count))
+#part1 = []
+exp_prob_CF = fill(0.0,(data_count,data_count))
+exp_prob_Laugh = fill(0.0,(data_count,data_count))
+#givematrix = [fill(0.0+im*0.0,(particles,particles))]
 for i in 1:length(xs)
 	local_x = xs[i]
+	println(i/length(xs))
 	for j in 1:length(xs)
 		local_y = xs[j]
 		append!(xs_plot,[local_x])
 		append!(ys_plot,[local_y])
 		starting_config[1] = local_x - im*local_y
 		radius = abs(starting_config[1])
-		#if radius < 0.0001
-		#println(radius)
-		#end
-		#append!(part1,[log(starting_config[1])])
-		#append!(logjis,[get_logJi(starting_config,1,p)])
-		#
-		vals = get_wavefunc_fromlog(starting_config,n,p,qpart)
-		exp_prob_local = 2*real(vals)
-		#givematrix[1] = vals[2]
-		append!(exp_prob,[exp_prob_local])
-		#
-		#=reg_prob_local = log(abs2(get_wavefunc(starting_config,n,p,qpart)))
-		if isnan(reg_prob_local) | isinf(reg_prob_local)
-			println("Divergent: $i $j")
-		end
-		append!(reg_prob,[reg_prob_local])
+		#=
+		logjast[i,j] = get_logJastrowfull(starting_config)
+		logj1[i,j] = get_logJi(starting_config,1)
+		logslater[i,j] = log(starting_config[1])
 		=#
+		vals_CF = get_wavefunc_fromlog(starting_config,n,p,qpart)
+		exp_prob_CF_local = 2*real(vals_CF)
+		exp_prob_CF[i,j] = exp_prob_CF_local
+		
+		vals_Laugh = prob_wavefunc_laughlin(starting_config,2*p+1)
+		exp_prob_Laugh_local = -vals_Laugh
+		exp_prob_Laugh[i,j] = exp_prob_Laugh_local
 	end
 end
 #
+if true
+figure()
+imshow(exp_prob_CF)#./maximum(exp_prob_CF))
+title("CF Wavefunc")
+colorbar()
+end
+if true
+figure()
+imshow(exp_prob_Laugh)#./maximum(exp_prob_Laugh))
+title("Laughlin Wavefunc")
+colorbar()
+end
+if false
+figure()
+imshow(real.(logjast))
+title("Jastrow")
+colorbar()
+end
+if false
+figure()
+imshow(real.(logj1))
+title("J_one")
+colorbar()
+end
+if false
+figure()
+imshow(real.(logslater))
+title("Slater")
+colorbar()
+end
+if false
+figure()
+imshow(exp_prob_CF./real.(logjast))
+title("Quotient")
+colorbar()
+end
 
 #scatter3D(xs_plot,ys_plot,reg_prob./maximum(reg_prob),label="Reg")
-scatter3D(xs_plot,ys_plot,exp_prob./maximum(exp_prob),label="Exp")
+#scatter3D(xs_plot,ys_plot,exp_prob./maximum(exp_prob),label="Exp")
 #sleep(2.0)
 #scatter3D(xs_plot,ys_plot,part1+logjis,label="One")
 
-legend()
-xlabel("X")
-ylabel("Y")
+#legend()
+#xlabel("X")
+#ylabel("Y")
 #
 
 

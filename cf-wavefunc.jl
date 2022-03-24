@@ -160,7 +160,7 @@ function get_wavefunc(config,n,p,qpart=[0,[0]])
 	return wavefunc
 end
 
-function get_logJi(config,part,p)
+function get_logJi(config,part)
 	logji = 0.0
 	num_parts = length(config)
 	for i in 1:num_parts
@@ -168,9 +168,18 @@ function get_logJi(config,part,p)
 			continue
 		end
 		dist_btw = config[part]-config[i]
-		logji += p*log(Complex(dist_btw))
+		logji += log(Complex(dist_btw))#*p
 	end
 	return logji
+end
+
+function get_logJastrowfull(config)
+	num_parts = length(config)
+	logJastrow = 0.0
+	for i in 1:num_parts
+		logJastrow += get_logJi(config,i)
+	end
+	return logJastrow
 end
 
 function get_log_add(a,b)
@@ -283,7 +292,7 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 	num_parts = length(config)
 	matrix_element = [row,part]
 	bar, l = get_wf_elem(num_parts,matrix_element,n,qpart)
-	logJi, logJiprime, logJi2prime = get_logJi(config,part,p), get_logJiprime(config,part,p), get_logJi2prime(config,part,p)
+	logJi, logJiprime, logJi2prime = p*get_logJi(config,part), get_logJiprime(config,part,p), get_logJi2prime(config,part,p)
 	qpart_shift = qpart[1]
 	lstar2 = 2*1*n + 1
 	coeff = [(1/lstar2) - 1,1/lstar2^2 - 2\lstar2 + 1]
@@ -297,17 +306,18 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 				result = get_log_add(a,b)
 			end
 		else
-			result = l*log(config[part]) + logJi
-			#if row == 2 && part == 1
-			#	println(log(config[part]),", ",logJi)
-			#end
+			if l == 0 # bc log(config[part]) neg infty bad w/ zero
+				result = logJi
+			else
+				result = l*log(config[part]) + logJi
+			end
 		end
 	else
 		logetabar = log(conj(qpart[2][row]))
 		log_exppart = get_qpart_wf_exp(config,qpart,row,part,n,false)
 		if n == 1
-			part1 = logetabar + log(Complex(coeff[n])) #+ logJi
-			part2 = log(2) #+ logJiprime
+			part1 = logetabar + log(Complex(coeff[n])) + logJi
+			part2 = log(2) + logJiprime
 			result = log_exppart + get_log_add(part1,part2)
 		else
 			part1 = 2*logetabar + logJi + log(Complex(coeff[n]))
@@ -346,7 +356,7 @@ function get_log_det(matrix,reg_input=false)
 		if length(dats) == length(allowed_indices) + i - 1
 			all_equal_count += 1
 			index = all_equal_count
-			println("Row All Equal: $i")
+			#println("Row All Equal: $i")
 		end
 		maxes[i] = changed[i,index]
 		changed[i,:] = [changed[i,j] - maxes[i] for j in 1:num_parts]
@@ -377,11 +387,36 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 	#println(log_matrix[1,2])
 	#
 	result = get_log_det(log_matrix)
-	for i in 1:num_parts
-		result += -abs2(config[i])/4
-	end
+	#for i in 1:num_parts
+	#	result += -abs2(config[i])/4
+	#end
 	return result#,log_matrix
 	#
+end
+
+function dist_btw_Laugh(part_1,part_2)
+	return sqrt((part_1[1] - part_2[1])^2 + (part_1[2] - part_2[2])^2)
+end
+
+function prob_wavefunc_laughlin(complex_config, m)
+	full = 0
+	num_parts = length(complex_config)
+	config = [[real(complex_config[i]),imag(complex_config[i])] for i in 1:num_parts]
+	for j = 1:num_parts
+		for i in 1:num_parts
+			if i == j
+				continue
+			end
+			dist = dist_btw_Laugh(config[i],config[j]) 
+			full += -m*log( dist )
+		end
+		
+		#for k in 1:qhole[1]
+		#	full += -2*log( dist_btw_Laugh(config[j],qhole[k+1]))
+		#end
+		#full += 0.5 * (config[j][1]^2 + config[j][2]^2)
+	end
+	return full
 end
 
 
