@@ -4,6 +4,25 @@ include("read-CF-data.jl")
 include("cf-wavefunc.jl")
 include("mc-cf.jl")
 
+function get_logdet_diff(log_matrix,exp_shift)
+	parts = length(exp_shift)
+	multip_log_matrix = fill(0.0+im*0.0,(parts,parts))
+	#exp_shift = [rand(Float64)+im*rand(Float64) for j in 1:parts]
+	for j in 1:parts
+	multip_log_matrix[:,j] = log_matrix[:,j] .+ exp_shift[j]
+	end
+	logdet_multip = get_log_det(multip_log_matrix)
+	#println(multip_log_matrix,", ",log_matrix)
+	logdet_reg = get_log_det(log_matrix)
+	expected_shift = sum(exp_shift)
+	diff = logdet_multip - (logdet_reg + expected_shift)
+	#println(round(imag(diff)/pi,digits=0),", ",imag(diff)/pi)
+	#if !isapprox(round(imag(diff)/pi,digits=0),imag(diff)/pi,atol=10^(-1))
+	#	println(imag(diff)/pi)
+	#end
+	return diff
+end
+
 function get_density(particles,n,p,hdf5_data,data_count)
 	rm = sqrt(2*particles*(2*p*n+1)/n)
 	xs = [i*1.3*rm/data_count + 0.5*1.3*rm/data_count for i in 0:data_count-1]
@@ -56,16 +75,21 @@ starting_config = start_rand_config(particles,n,p)#1 .*qp1_data[2][:,3800]
 parts_xs = real.(starting_config[2:end])
 parts_ys = -imag.(starting_config[2:end])
 #scatter3D(parts_xs,parts_ys,[1.0 for i in 1:particles-1],c="r")
-xs = [-0.5*rm + i*(2*0.5*rm)/data_count for i in 1:data_count]
+#xs = [-0.01*rm + i*(2*0.01*rm)/data_count for i in 1:data_count]
+xs = [-0.01*rm + i*(2*0.01*rm)/data_count for i in 1:data_count]
 #exp_prob = []
 #reg_prob = []
 logjast = fill(0.0+im*0.0,(data_count,data_count))
 logj1 = fill(0.0+im*0.0,(data_count,data_count))
 logslater = fill(0.0+im*0.0,(data_count,data_count))
 #part1 = []
-exp_prob_CF = fill(0.0,(data_count,data_count))
+exp_prob_CF_sep = fill(0.0,(data_count,data_count))
+exp_prob_CF_reg = fill(0.0,(data_count,data_count))
 exp_prob_Laugh = fill(0.0,(data_count,data_count))
+
+diffs = fill(0.0+im*0.0,(data_count,data_count))
 #givematrix = [fill(0.0+im*0.0,(particles,particles))]
+trial_vals = []
 for i in 1:length(xs)
 	local_x = xs[i]
 	println(i/length(xs))
@@ -81,22 +105,44 @@ for i in 1:length(xs)
 		logslater[i,j] = log(starting_config[1])
 		=#
 		vals_CF = get_wavefunc_fromlog(starting_config,n,p,qpart)
-		exp_prob_CF_local = 2*real(vals_CF)
-		exp_prob_CF[i,j] = exp_prob_CF_local
+		append!(trial_vals,[vals_CF,starting_config])
+		
+		sep_matrix = vals_CF[4]
+		exp_shift = [p*get_logJi(starting_config,k) for k in 1:particles]
+		diff_local = get_logdet_diff(sep_matrix,exp_shift)
+		diffs[i,j] = diff_local
+		#=
+		exp_prob_CF_sep_local = 2*real(vals_CF[2])
+		exp_prob_CF_reg_local = 2*real(vals_CF[1])
+		exp_prob_CF_sep[i,j] = exp_prob_CF_sep_local
+		exp_prob_CF_reg[i,j] = exp_prob_CF_reg_local
 		
 		vals_Laugh = prob_wavefunc_laughlin(starting_config,2*p+1)
 		exp_prob_Laugh_local = -vals_Laugh
 		exp_prob_Laugh[i,j] = exp_prob_Laugh_local
+		=#
 	end
 end
 #
 if true
 figure()
-imshow(exp_prob_CF)#./maximum(exp_prob_CF))
-title("CF Wavefunc")
+imshow(real.(diffs))#./maximum(exp_prob_CF))
+title("Real Diffs")
 colorbar()
 end
-if true
+if false
+figure()
+imshow(abs.(exp_prob_CF_sep-exp_prob_CF_reg))#./maximum(exp_prob_CF))
+title("Sep CF Wavefunc")
+colorbar()
+end
+if false
+figure()
+imshow(exp_prob_CF_reg)#./maximum(exp_prob_CF))
+title("Reg CF Wavefunc")
+colorbar()
+end
+if false
 figure()
 imshow(exp_prob_Laugh)#./maximum(exp_prob_Laugh))
 title("Laughlin Wavefunc")
@@ -126,6 +172,8 @@ imshow(exp_prob_CF./real.(logjast))
 title("Quotient")
 colorbar()
 end
+
+
 
 #scatter3D(xs_plot,ys_plot,reg_prob./maximum(reg_prob),label="Reg")
 #scatter3D(xs_plot,ys_plot,exp_prob./maximum(exp_prob),label="Exp")
