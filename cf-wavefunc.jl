@@ -334,6 +334,17 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 	return result,result_sepJi
 end
 
+function get_diag_log_det(matrix)
+	num_parts = size(matrix)[1]
+	active_matrix = matrix + fill(0.0,(num_parts,num_parts))
+	outsides = [active_matrix[i,i] for i in 1:num_parts]
+	for i in 1:num_parts
+		active_matrix[:,i] .-= outsides[i]
+	end
+	logdet = sum(outsides) + log(det(exp.(active_matrix)))
+	return logdet
+end
+
 function get_log_det(matrix,reg_input=false)
 	num_parts = size(matrix)[1]
 	maxes = [0.0+0.0*im for i in 1:num_parts]
