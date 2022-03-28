@@ -298,7 +298,7 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 	coeff = [(1/lstar2) - 1,1/lstar2^2 - 2\lstar2 + 1]
 	if row >= qpart_shift + 1
 		if bar > 0
-			println("Other")
+			#println("Other")
 			if l == 0
 				result = log(2) + logJiprime
 			else
@@ -308,16 +308,16 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 			end
 		else
 			if l == 0
-				result_sepJi = 0.0
+				#result_sepJi = 0.0
 				result = logJi
 			else
 				result = logJi + l*log(config[part])
-				result_sepJi = l*log(config[part])
+				#result_sepJi = l*log(config[part])
 			end
 		end
 		
 	else
-		println("Other")
+		#println("Other")
 		logetabar = log(conj(qpart[2][row]))
 		log_exppart = get_qpart_wf_exp(config,qpart,row,part,n,false)
 		if n == 1
@@ -331,7 +331,7 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 			result = log_exppart + get_log_add(part1,get_log_add(part2,part3))
 		end
 	end
-	return result,result_sepJi
+	return result#,result_sepJi
 end
 
 function get_diag_log_det(matrix)
@@ -341,8 +341,8 @@ function get_diag_log_det(matrix)
 	for i in 1:num_parts
 		active_matrix[:,i] .-= outsides[i]
 	end
-	logdet = sum(outsides) + log(det(exp.(active_matrix)))
-	return logdet
+	logdet = sum(outsides) + log(Complex(det(exp.(active_matrix))))
+	return logdet,outsides,active_matrix
 end
 
 function get_log_det(matrix,reg_input=false)
@@ -393,26 +393,26 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 		for j in 1:num_parts
 			data_here = get_log_elem_proj(config,j,i,n,p,qpart)
 			
-			if isnan(data_here[1]) | isnan(data_here[2])
+			if isnan(data_here[1]) #| isnan(data_here[2])
 				println(j,", ",i)
 			#	break
 			end
 			#
 			log_matrix[i,j] += data_here[1]
-			log_matrix_sepJi[i,j] += data_here[2]
+			#log_matrix_sepJi[i,j] += data_here[2]
 		end
 	end
 	#println(log_matrix[1,2])
 	#
-	result = get_log_det(log_matrix)
-	result_sepJi = get_log_det(log_matrix_sepJi)
-	jast_part = p*get_logJastrowfull(config)
-	result_sepJi += jast_part
+	result = get_diag_log_det(log_matrix)[1]
+	#result_sepJi = get_diag_log_det(log_matrix_sepJi)[1]
+	#jast_part = p*get_logJastrowfull(config)
+	#result_sepJi += jast_part
 
 	#for i in 1:num_parts
 	#	result += -abs2(config[i])/4
 	#end
-	return result,result_sepJi,log_matrix,log_matrix_sepJi,jast_part
+	return result#,result_sepJi,log_matrix,log_matrix_sepJi,jast_part
 	#
 end
 

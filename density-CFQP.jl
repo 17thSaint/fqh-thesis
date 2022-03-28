@@ -24,7 +24,7 @@ function get_logdet_diff(log_matrix,exp_shift)
 	#if !isapprox(round(imag(diff)/pi,digits=0),imag(diff)/pi,atol=10^(-1))
 	#	println(imag(diff)/pi)
 	#end
-	return log_diff
+	return multip_log_matrix
 end
 
 function get_regdet_diff(log_matrix,exp_shift)
@@ -110,7 +110,7 @@ function check_matrix_equality(matrix_one,matrix_two)
 end
 
 #
-data_count = 20
+data_count = 50
 #exp_prob = []
 #reg_prob = []
 logjast = fill(0.0+im*0.0,(data_count,data_count))
@@ -119,7 +119,7 @@ logslater = fill(0.0+im*0.0,(data_count,data_count))
 #part1 = []
 exp_prob_CF_sep = fill(0.0,(data_count,data_count))
 exp_prob_CF_reg = fill(0.0,(data_count,data_count))
-exp_prob_Laugh = fill(0.0,(data_count,data_count))
+#exp_prob_Laugh = fill(0.0,(data_count,data_count))
 
 exact_diffs = fill(0.0+im*0.0,(data_count,data_count))
 #randmat_diffs = [fill(0.0+im*0.0,(data_count,data_count)) for i in 1:length(coef_vals)]
@@ -132,14 +132,14 @@ xs_plot = [[],[],[],[]]
 ys_plot = [[],[],[],[]]
 
 parts_vals = [6,8,10,12]
-for k in 1:4
+for k in 4:4
 
 
-particles = parts_vals[k]#12
+particles = parts_vals[k]
 mc_steps = 10000
 np_vals = [[1,1],[1,2],[2,1]]
 which = 1
-n,p = 1,0#np_vals[which]
+n,p = 1,1#np_vals[which]
 fill_denom = 2*n*p + 1
 rm = sqrt(2*particles*fill_denom/n)
 #=
@@ -147,7 +147,7 @@ x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 rad_choice = 5
 x_rad = x_rads[rad_choice]
 =#
-qpart = [0,[3.0+im*3.0]]
+qpart = [1,[0.0+im*0.0]]
 #qp2_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,2,true)
 #qp1_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,1,true)
 #
@@ -157,10 +157,10 @@ starting_config = start_rand_config(particles,n,p)#1 .*qp1_data[2][:,3800]
 #parts_ys = -imag.(starting_config[2:end])
 #scatter3D(parts_xs,parts_ys,[1.0 for i in 1:particles-1],c="r")
 #xs = [-0.01*rm + i*(2*0.01*rm)/data_count for i in 1:data_count]
-xs = [-0.01*rm + i*(2*0.01*rm)/data_count for i in 1:data_count]
+xs = [-0.5*rm + i*(2*0.5*rm)/data_count for i in 1:data_count]
 for i in 1:length(xs)
 	local_x = xs[i]
-	#println(i/length(xs))
+	println(i/length(xs))
 	for j in 1:length(xs)
 		local_y = xs[j]
 		#append!(xs_plot,[local_x])
@@ -175,8 +175,8 @@ for i in 1:length(xs)
 		vals_CF = get_wavefunc_fromlog(starting_config,n,p,qpart)
 		#append!(trial_vals,[vals_CF,starting_config])
 		
-		sep_matrix = vals_CF[4]
-		exp_shift = [p*get_logJi(starting_config,k) for k in 1:particles]
+		#sep_matrix = vals_CF[4]
+		#exp_shift = [p*get_logJi(starting_config,k) for k in 1:particles]
 		
 		#exact_diff_local = get_logdet_diff(sep_matrix,exp_shift)
 		#exact_diffs[i,j] = exact_diff_local
@@ -185,10 +185,14 @@ for i in 1:length(xs)
 		randmat = multip.*get_rand_matrix(particles)
 		randmat_diff_local = get_logdet_diff(randmat,exp_shift)
 		randmat_diffs[k][i,j] = randmat_diff_local
-		=#
+		
 		
 		randshift = get_rand_shift(particles)
 		randshift_logdiff_local = get_logdet_diff(sep_matrix,randshift)
+		regway_det = log(Complex(det(exp.(randshift_logdiff_local))))
+		myway_det = get_log_det(randshift_logdiff_local)
+		myway2_det = get_diag_log_det(randshift_logdiff_local)[1]
+		=#
 		#randshift_regdiff_local = get_regdet_diff(sep_matrix,randshift)
 		#fromlog = randshift_logdiff_local[1]
 		#fromreg = log.(randshift_regdiff_local[1])
@@ -212,7 +216,9 @@ for i in 1:length(xs)
 		
 		
 		#randshift_diffs_reg[k][i,j] = percent_diff_reg
-		randshift_diffs_log[k][i,j] = randshift_logdiff_local
+		#randshift_diffs_log[1][i,j] = regway_det
+		#randshift_diffs_log[2][i,j] = myway_det
+		#randshift_diffs_log[3][i,j] = myway2_det
 		#=
 		reg_diff = real(randshift_logdiff_local[2] - randshift_regdiff_local[2])
 		log_diff = real(randshift_logdiff_local[1] - randshift_regdiff_local[1])
@@ -231,12 +237,12 @@ for i in 1:length(xs)
 		=#
 		
 		
-		#=
-		exp_prob_CF_sep_local = 2*real(vals_CF[2])
+		#
+		#exp_prob_CF_sep_local = 2*real(vals_CF[2])
 		exp_prob_CF_reg_local = 2*real(vals_CF[1])
-		exp_prob_CF_sep[i,j] = exp_prob_CF_sep_local
+		#exp_prob_CF_sep[i,j] = exp_prob_CF_sep_local
 		exp_prob_CF_reg[i,j] = exp_prob_CF_reg_local
-		
+		#=
 		vals_Laugh = prob_wavefunc_laughlin(starting_config,2*p+1)
 		exp_prob_Laugh_local = -vals_Laugh
 		exp_prob_Laugh[i,j] = exp_prob_Laugh_local
@@ -259,18 +265,19 @@ plot(coef_vals,errors,"-p")
 title("Rand Matrix Diff Errors")
 #colorbar()
 end
-for i in 1:4
-part_count = parts_vals[i]
-if true
+string_versions = ["Reg","My 1","My Diag"]
+for i in 1:3
+wh = string_versions[i]
+if false
 figure()
 imshow(real.(randshift_diffs_log[i]))
-title("Rand Shift Diffs Log")
+title("Rand Shift Diffs Log $wh")
 colorbar()
 end
 end
-if false
+if true
 figure()
-imshow(abs.(exp_prob_CF_sep-exp_prob_CF_reg))#./maximum(exp_prob_CF))
+imshow(exp_prob_CF_reg)
 title("Sep CF Wavefunc")
 colorbar()
 end
