@@ -2,29 +2,29 @@
 #import Pkg; Pkg.add("LinearAlgebra")
 using HDF5,LinearAlgebra
 
-function write_pos_data_hdf5(folder,mc_steps,particles,n,p,data,count,which,qpart=[0,[0]],log_form=false)
+function write_pos_data_hdf5(folder,mc_steps,particles,n,p,data,rad_count,which,qpart=[0,[0]],log_form=false)
 	println("Starting Data Write")
 	if folder != "NA"
 		cd("..")
 		cd("$folder")
 	end
-	qpart_count = qpart[1]
+	qpartcount = qpart[1]
 	if log_form
-		if qpart_count > 0
-			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpart_count-$count-rad-log-$which.hdf5","w")
+		if qpartcount > 0
+			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$rad_count-rad-log-$which.hdf5","w")
 		else 
-			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$count-log.hdf5","w")
+			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$rad_count-log.hdf5","w")
 		end
 	else
-		if qpart_count > 0
-			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpart_count-$count-rad-$which.hdf5","w")
+		if qpartcount > 0
+			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$rad_count-rad-$which.hdf5","w")
 		else 
-			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$count.hdf5","w")
+			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$rad_count.hdf5","w")
 		end
 	end
 	create_group(binary_file_pos,"metadata")
 	metadata = binary_file_pos["metadata"]
-	for i in 1:qpart_count
+	for i in 1:qpartcount
 		metadata["qpart_position_$i"] = qpart[2][i]
 	end
 	println("Metadata Added")
@@ -143,7 +143,7 @@ function find_CF_data(folder,particles,n,p,rad_choice,qpart_count,log_form)
 	for i in 1:number
 		name = file_list[i]
 		separated = split(name,"-")
-		if length(separated) < 10 || separated[3] == "comb"
+		if length(separated) < 10
 			continue
 		end
 		#parts_here = parse(Int,separated[6])
@@ -155,15 +155,25 @@ function find_CF_data(folder,particles,n,p,rad_choice,qpart_count,log_form)
 			p_here = parse(Int,separated[findall(i->i=="p",separated)[1] + 1])
 			if n_here == n && p_here == p
 				#radcount_here = parse(Int,separated[13])
-				radcount_here = parse(Int,separated[findall(i->i=="rad",separated)[1] - 1])
+				if separated[3] == "comb"
+					radcount_here = parse(Int,separated[findall(i->i=="rad",separated)[1] + 1])
+				else
+					radcount_here = parse(Int,separated[findall(i->i=="rad",separated)[1] - 1])
+				end
 				if radcount_here == rad_choice
 					#qpartcount_here = parse(Int,separated[12])
+					#println(separated[findall(i->i=="qpart",separated)[1] + 1])
 					qpartcount_here = parse(Int,separated[findall(i->i=="qpart",separated)[1] + 1])
 					if qpartcount_here == qpart_count
-						which_here = parse(Int,split(separated[end],".")[1])
-						#mcsteps_here = parse(Int,separated[4])
-						mcsteps_here = parse(Int,separated[findall(i->i=="mc",separated)[1] + 1])
-						data_here = read_CF_hdf5("NA",mcsteps_here,parts_here,n_here,p_here,which_here,radcount_here,qpartcount_here,log_form)
+						if separated[3] == "comb"
+							data_here = read_comb_CF_hdf5("NA",parts_here,n_here,p_here,radcount_here,qpartcount_here,log_form)
+						else
+							which_here = parse(Int,split(separated[end],".")[1])
+							#mcsteps_here = parse(Int,separated[4])
+							mcsteps_here = parse(Int,separated[findall(i->i=="mc",separated)[1] + 1])
+							println(name)
+							data_here = read_CF_hdf5("NA",mcsteps_here,parts_here,n_here,p_here,which_here,radcount_here,qpartcount_here,log_form)
+						end
 						append!(all_data,[data_here])
 						append!(files_combined,[name])
 						
@@ -178,7 +188,14 @@ function find_CF_data(folder,particles,n,p,rad_choice,qpart_count,log_form)
 		#mkdir("indiv-comb-cf-data")
 		for i in 1:length(files_combined)
 			file_name = files_combined[i]
-			mv("$file_name","indiv-comb-cf-data/$file_name",force=false)
+			cd("indiv-comb-cf-data")
+			repeat = findall(na->na==file_name,readdir())
+			cd("..")
+			if length(repeat) > 0
+				println("Found overlap: $file_name")
+			else
+				mv("$file_name","indiv-comb-cf-data/$file_name",force=false)
+			end
 		end
 		#
 	end
@@ -215,13 +232,13 @@ end
 
 #=
 log_form = true
-particles = 16
+particles = 12
 np_vals = [[1,1],[1,2],[2,1]]
 for k in 1:1
 	n,p = np_vals[k]
 	for j in 2:2
 		qpart_count = j
-		for i in 1:10
+		for i in 5:5
 			rad_choice = i
 			alldats = find_CF_data("cf-data",particles,n,p,rad_choice,qpart_count,log_form)
 			if alldats[2]

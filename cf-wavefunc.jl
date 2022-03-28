@@ -298,7 +298,7 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 	coeff = [(1/lstar2) - 1,1/lstar2^2 - 2\lstar2 + 1]
 	if row >= qpart_shift + 1
 		if bar > 0
-			#println("Other")
+			
 			if l == 0
 				result = log(2) + logJiprime
 			else
@@ -308,16 +308,13 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 			end
 		else
 			if l == 0
-				#result_sepJi = 0.0
 				result = logJi
 			else
 				result = logJi + l*log(config[part])
-				#result_sepJi = l*log(config[part])
 			end
 		end
 		
 	else
-		#println("Other")
 		logetabar = log(conj(qpart[2][row]))
 		log_exppart = get_qpart_wf_exp(config,qpart,row,part,n,false)
 		if n == 1
@@ -331,7 +328,7 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 			result = log_exppart + get_log_add(part1,get_log_add(part2,part3))
 		end
 	end
-	return result#,result_sepJi
+	return result
 end
 
 function get_diag_log_det(matrix)
@@ -393,27 +390,20 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 		for j in 1:num_parts
 			data_here = get_log_elem_proj(config,j,i,n,p,qpart)
 			
-			if isnan(data_here[1]) #| isnan(data_here[2])
-				println(j,", ",i)
+			if isnan(data_here)
+				println("NaN: ",j,", ",i)
 			#	break
 			end
-			#
 			log_matrix[i,j] += data_here[1]
-			#log_matrix_sepJi[i,j] += data_here[2]
 		end
 	end
-	#println(log_matrix[1,2])
-	#
-	result = get_diag_log_det(log_matrix)[1]
-	#result_sepJi = get_diag_log_det(log_matrix_sepJi)[1]
-	#jast_part = p*get_logJastrowfull(config)
-	#result_sepJi += jast_part
 
-	#for i in 1:num_parts
-	#	result += -abs2(config[i])/4
-	#end
-	return result#,result_sepJi,log_matrix,log_matrix_sepJi,jast_part
-	#
+	result = get_diag_log_det(log_matrix)[1]
+	
+	for i in 1:num_parts
+		result += -abs2(config[i])/4
+	end
+	return result
 end
 
 function dist_btw_Laugh(part_1,part_2)
@@ -433,10 +423,10 @@ function prob_wavefunc_laughlin(complex_config, m)
 			full += -m*log( dist )
 		end
 		
-		#for k in 1:qhole[1]
-		#	full += -2*log( dist_btw_Laugh(config[j],qhole[k+1]))
-		#end
-		#full += 0.5 * (config[j][1]^2 + config[j][2]^2)
+		for k in 1:qhole[1]
+			full += -2*log( dist_btw_Laugh(config[j],qhole[k+1]))
+		end
+		full += 0.5 * (config[j][1]^2 + config[j][2]^2)
 	end
 	return full
 end
