@@ -1,5 +1,5 @@
 using HDF5,PyPlot,Statistics
-
+#=
 function read_hdf5_data(num_parts,m,data_type,folder,version)
 	cd("..")
 	cd("$folder")
@@ -18,7 +18,9 @@ function read_hdf5_data(num_parts,m,data_type,folder,version)
 	cd("Codes")
 	return data
 end
-
+=#
+include("cf-wavefunc.jl")
+include("read-CF-data.jl")
 function prob_wavefunc(config, m, qhole, num_parts)
 	full = 0
 	for j = 1:num_parts
@@ -38,11 +40,11 @@ function get_energies_alltimes(xs,ys,m,qhole,num_parts,dt)
 	time_counts = Int(size(xs)[2]/dt)
 	energies = [0.0 for i in 1:time_counts]
 	for i in 1:time_counts
-		if i % (0.05*time_counts) == 0
-			println("Getting Energies: ",(i-1)*100/time_counts,"%")
-		end
+		#if i % (0.05*time_counts) == 0
+		#	println("Getting Energies: ",(i-1)*100/time_counts,"%")
+		#end
 		time = Int(1+(i-1)*dt)
-		input_config = [xs[:,time],ys[:,time]]
+		input_config = 
 		local_energy = prob_wavefunc(input_config,m,qhole,num_parts)
 		energies[i] = local_energy
 	end
@@ -66,24 +68,32 @@ function auto_correlation(energies, delta_t)
     return (mean(autocorrelation_top)/autocorrelation_bottom)
 end
 
-particles = 20
-for m in 1:3
-	x_pos = [read_hdf5_data(particles,m,"x","qhole-data","rnd"),read_hdf5_data(particles,m,"x","qhole-data","og"),read_hdf5_data(particles,m,"x","qhole-data","mk2")]
-	y_pos = [read_hdf5_data(particles,m,"y","qhole-data","rnd"),read_hdf5_data(particles,m,"y","qhole-data","og"),read_hdf5_data(particles,m,"y","qhole-data","mk2")]
-	for j in 1:3
-		energy = get_energies_alltimes(x_pos[j][1],y_pos[j][1],m,x_pos[j][2],particles,1)
-		len = Int(size(x_pos[j][1])[2]/1)
-		dts = [1+(i-1)*1 for i in 1:Int(0.0001*len)-1]
-		autocorr = [0.0 for i in 1:Int(0.0001*len)-1]
-		for i in 1:Int(0.0001*len)-1
-			if i % 0.05*(Int(0.0001*len)-1) == 0
-				println(100*i/(Int(0.0001*len)-1))
-			end
-			autocorr[i] = auto_correlation(energy,dts[i])
-		end
-		plot(dts,autocorr,label="M=$m,J=$j")
+function get_autocorr_length(wavefunc_data,samp_freq)
+	energy = 2 .*real.(wavefunc_data)
+	full_length = length(wavefunc_data)
+	#println("Full Length = $full_length")
+	len = 1000
+	dts = [1+(i-1)*1 for i in 1:Int(0.1*len)-1]
+	autocorr = [0.0 for i in 1:Int(0.1*len)-1]
+	for i in 1:Int(0.1*len)-1
+		autocorr[i] = auto_correlation(energy,dts[i])
 	end
+	check_below_tol = autocorr .< [0.01 for i in 1:length(autocorr)]
+	#println(autocorr)
+	corr_length = samp_freq*dts[findall(check_below_tol)[1]]
+	return corr_length,dts,autocorr
 end
+
+#=
+particles = 16
+n,p = 1,1
+rad_count = 5
+qpart_count = 2
+log_form = true
+hdf5_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_count,qpart_count,log_form)
+rezz = get_autocorr_length(hdf5_data[3],1)
+println(rezz[1])
+=#
 
 
 

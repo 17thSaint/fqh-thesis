@@ -1,8 +1,8 @@
-using Statistics,PyPlot
+using Statistics,PyPlot,LsqFit
 
 include("read-CF-data.jl")
 include("cf-wavefunc.jl")
-include("mc-cf.jl")
+include("energy-time-correlation.jl")
 
 function get_logdet_diff(log_matrix,exp_shift)
 	parts = length(exp_shift)
@@ -49,19 +49,34 @@ function get_regdet_diff(log_matrix,exp_shift)
 	return log_diff
 end
 
-function get_density(particles,n,p,hdf5_data,data_count)
+function get_density(particles,n,p,hdf5_data,data_count,samp_freq=1)
 	rm = sqrt(2*particles*(2*p*n+1)/n)
+	denom = 2*p*n+1
 	xs = [i*1.3*rm/data_count + 0.5*1.3*rm/data_count for i in 0:data_count-1]
-	qpart_data,pos_data,wavefunc_data = hdf5_data
+	qpart_data,pos_data_og,wavefunc_data = hdf5_data
+	println(length(wavefunc_data),", ",samp_freq)
+	number_slices = Int(floor(length(wavefunc_data)/samp_freq))
+	pos_data = fill(0.0+im*0.0,(particles,number_slices))
+	pos_data[:,1] = pos_data_og[:,1]
+	if samp_freq != 1
+		for i in 1:number_slices
+			pos_data[:,i] = pos_data_og[:,i*samp_freq]  
+		end
+	else
+		pos_data = pos_data_og
+	end
+	qp_count = qpart_data[1]
 	change_counts = [0.0 for i in 1:data_count]
 	total_possible_counts = particles*length(wavefunc_data)
 	#errors = [0.0 for i in 1:data_count]
 	previous_count = 0
 	for k in 1:data_count
+	    if k%(data_count*0.05) == 0
+		    println("Running QP $qp_count $n/$denom: ",100*k/data_count,"%")
+	    end	
 	    edge = xs[k]
-	    #
 	    local_count = 0
-	    for i in 1:length(wavefunc_data)
+	    for i in 1:number_slices
 	    	xpos = real.(pos_data[1:end,i])
 		ypos = -imag.(pos_data[1:end,i])
 		for j in 1:length(xpos)
@@ -109,216 +124,77 @@ function check_matrix_equality(matrix_one,matrix_two)
 	return same
 end
 
-#
-data_count = 50
-#exp_prob = []
-#reg_prob = []
-logjast = fill(0.0+im*0.0,(data_count,data_count))
-logj1 = fill(0.0+im*0.0,(data_count,data_count))
-logslater = fill(0.0+im*0.0,(data_count,data_count))
-#part1 = []
-exp_prob_CF_sep = fill(0.0,(data_count,data_count))
-exp_prob_CF_reg = fill(0.0,(data_count,data_count))
-#exp_prob_Laugh = fill(0.0,(data_count,data_count))
-
-exact_diffs = fill(0.0+im*0.0,(data_count,data_count))
-#randmat_diffs = [fill(0.0+im*0.0,(data_count,data_count)) for i in 1:length(coef_vals)]
-randshift_diffs_log = [fill(0.0+im*0.0,(data_count,data_count)) for i in 1:4]
-randshift_diffs_reg = [fill(0.0+im*0.0,(data_count,data_count)) for i in 1:4]
-randshift_diffs_btw = [fill(0.0+im*0.0,(data_count,data_count)) for i in 1:4]
-#givematrix = [fill(0.0+im*0.0,(particles,particles))]
-trial_vals = []
+#=
+#data_count = 50
 xs_plot = [[],[],[],[]]
 ys_plot = [[],[],[],[]]
 
-parts_vals = [6,8,10,12]
-for k in 4:4
-
-
-particles = parts_vals[k]
-mc_steps = 10000
+particles = 16
+#mc_steps = 10000
 np_vals = [[1,1],[1,2],[2,1]]
 which = 1
-n,p = 1,1#np_vals[which]
+n,p = np_vals[which]
 fill_denom = 2*n*p + 1
 rm = sqrt(2*particles*fill_denom/n)
-#=
+#
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 rad_choice = 5
 x_rad = x_rads[rad_choice]
+#
+qp2_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,2,true)
+qp1_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,1,true)
+autocorr_length_qp1 = 1#get_autocorr_length(qp1_data[3],1)[1]
+autocorr_length_qp2 = 1#get_autocorr_length(qp2_data[3],1)[1]
+
+
+#array_data = Iterators.flatten([qp1_data[2][i,:] for i in 1:1])#Iterators.flatten([only_no_overlaps_data[2][i,:] for i in 2:particles])
+#hist2D(real.(array_data),-imag.(array_data),bins=100)
+#
+dens_data_1q = get_density(particles,n,p,qp1_data,200,autocorr_length_qp1)
+dens_data_2q = get_density(particles,n,p,qp2_data,200,autocorr_length_qp2)
+qpart_location = qp1_data[1][2][1]
 =#
-qpart = [1,[0.0+im*0.0]]
-#qp2_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,2,true)
-#qp1_data = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,1,true)
+rad_range_1q = findall(x->isapprox(x,real(qpart_location)/rm,atol=0.1),dens_data_1q[1]./rm)
+rad_range_2q = findall(x->isapprox(x,real(qpart_location)/rm+0.05,atol=0.1),dens_data_2q[1]./rm)
+vert_shift_1q = minimum(dens_data_1q[2][rad_range_1q[1]:rad_range_1q[end]])
+vert_shift_2q = minimum(dens_data_2q[2][rad_range_2q[1]:rad_range_2q[end]])
+scaling_guess = maximum(dens_data_1q[2])
+
+model_1q(qrad,p) = p[1].*(qrad .- p[2]).^2 .+ vert_shift_1q
+model_2q(qrad,p) = p[1].*(qrad .- p[2]).^2 .+ vert_shift_2q
+p0 = [scaling_guess,x_rad]
+fit_1q = curve_fit(model_1q,dens_data_1q[1][rad_range_1q[1]:rad_range_1q[end]],dens_data_1q[2][rad_range_1q[1]:rad_range_1q[end]],p0)
+fit_2q = curve_fit(model_2q,dens_data_2q[1][rad_range_2q[1]:rad_range_2q[end]],dens_data_2q[2][rad_range_2q[1]:rad_range_2q[end]],p0)
+exp_pval = (fit_2q.param[2]^2 - fit_1q.param[2]^2)/4
+error = sqrt(2*(stderror(fit_1q)[2]*fit_1q.param[2])^2 + 2*(stderror(fit_2q)[2]*fit_2q.param[2])^2)
+println(exp_pval," +/- ",error)
+#
+plot(dens_data_1q[1]./rm,dens_data_1q[2],label="1-QP")#"$n/$fill_denom")
+plot(dens_data_2q[1]./rm,dens_data_2q[2],label="2-QP")#"$n/$fill_denom")
+scatter([real(qpart_location)]./rm,[dens_data_1q[2][1]],label="QP")
+plot(dens_data_1q[1][rad_range_1q[1]:rad_range_1q[end]]./rm,model_1q(dens_data_1q[1][rad_range_1q[1]:rad_range_1q[end]],fit_1q.param),label="Fit 1Q")
+plot(dens_data_2q[1][rad_range_2q[1]:rad_range_2q[end]]./rm,model_2q(dens_data_2q[1][rad_range_2q[1]:rad_range_2q[end]],fit_2q.param),label="Fit 2Q")
+
+legend()
+
 #
 
-starting_config = start_rand_config(particles,n,p)#1 .*qp1_data[2][:,3800]
-#parts_xs = real.(starting_config[2:end])
-#parts_ys = -imag.(starting_config[2:end])
-#scatter3D(parts_xs,parts_ys,[1.0 for i in 1:particles-1],c="r")
-#xs = [-0.01*rm + i*(2*0.01*rm)/data_count for i in 1:data_count]
+
+#=
 xs = [-0.5*rm + i*(2*0.5*rm)/data_count for i in 1:data_count]
 for i in 1:length(xs)
 	local_x = xs[i]
 	println(i/length(xs))
 	for j in 1:length(xs)
 		local_y = xs[j]
-		#append!(xs_plot,[local_x])
-		#append!(ys_plot,[local_y])
+		append!(xs_plot,[local_x])
+		append!(ys_plot,[local_y])
 		starting_config[1] = local_x - im*local_y
-		radius = abs(starting_config[1])
-		#=
-		logjast[i,j] = get_logJastrowfull(starting_config)
-		logj1[i,j] = get_logJi(starting_config,1)
-		logslater[i,j] = log(starting_config[1])
-		=#
-		vals_CF = get_wavefunc_fromlog(starting_config,n,p,qpart)
-		#append!(trial_vals,[vals_CF,starting_config])
-		
-		#sep_matrix = vals_CF[4]
-		#exp_shift = [p*get_logJi(starting_config,k) for k in 1:particles]
-		
-		#exact_diff_local = get_logdet_diff(sep_matrix,exp_shift)
-		#exact_diffs[i,j] = exact_diff_local
-		#=
-		multip = coef_vals[k]
-		randmat = multip.*get_rand_matrix(particles)
-		randmat_diff_local = get_logdet_diff(randmat,exp_shift)
-		randmat_diffs[k][i,j] = randmat_diff_local
 		
 		
-		randshift = get_rand_shift(particles)
-		randshift_logdiff_local = get_logdet_diff(sep_matrix,randshift)
-		regway_det = log(Complex(det(exp.(randshift_logdiff_local))))
-		myway_det = get_log_det(randshift_logdiff_local)
-		myway2_det = get_diag_log_det(randshift_logdiff_local)[1]
-		=#
-		#randshift_regdiff_local = get_regdet_diff(sep_matrix,randshift)
-		#fromlog = randshift_logdiff_local[1]
-		#fromreg = log.(randshift_regdiff_local[1])
-		#matrix_equality = check_matrix_equality(fromlog,fromreg)
-		#if !matrix_equality
-		#	println("Not Equal")
-		#end
-		
-		#fromlog_det = get_diag_log_det(fromlog)
-		#fromlog_det_reg = log(det(exp.(fromlog)))
-		#fromreg_det = get_log_det(fromreg)
-		#fromreg_det_reg = log(det(exp.(fromreg)))
-		#percent_diff_log = abs((real(fromlog_det) - real(fromlog_det_reg))/real(fromlog_det))
-		#percent_diff_reg = abs((real(fromreg_det) - real(fromreg_det_reg))/real(fromreg_det))
-		#=
-		if percent_diff > 0.01
-			rounded_perdiff = round(percent_diff,digits=3)
-			println("Different $particles $rounded_perdiff: ")#,fromlog,", ",fromreg)
-		end
-		=#
-		
-		
-		#randshift_diffs_reg[k][i,j] = percent_diff_reg
-		#randshift_diffs_log[1][i,j] = regway_det
-		#randshift_diffs_log[2][i,j] = myway_det
-		#randshift_diffs_log[3][i,j] = myway2_det
-		#=
-		reg_diff = real(randshift_logdiff_local[2] - randshift_regdiff_local[2])
-		log_diff = real(randshift_logdiff_local[1] - randshift_regdiff_local[1])
-		if real(reg_diff) > 10^(-5)
-			println("Reg $local_x $local_y: ",randshift_logdiff_local[2],", ", randshift_regdiff_local[2])
-		end
-		if real(log_diff) > 10^(-5)
-			println("Log $local_x $local_y: ",randshift_logdiff_local[1],", ", randshift_regdiff_local[1])
-		end
-		if isnan(log_diff)
-			println("NaN Log $local_x $local_y: ",randshift_logdiff_local[1],", ", randshift_regdiff_local[1])
-		end
-		if isnan(reg_diff)
-			println("NaN Reg $local_x $local_y: ",randshift_logdiff_local[2],", ", randshift_regdiff_local[2])
-		end
-		=#
-		
-		
-		#
-		#exp_prob_CF_sep_local = 2*real(vals_CF[2])
-		exp_prob_CF_reg_local = 2*real(vals_CF[1])
-		#exp_prob_CF_sep[i,j] = exp_prob_CF_sep_local
-		exp_prob_CF_reg[i,j] = exp_prob_CF_reg_local
-		#=
-		vals_Laugh = prob_wavefunc_laughlin(starting_config,2*p+1)
-		exp_prob_Laugh_local = -vals_Laugh
-		exp_prob_Laugh[i,j] = exp_prob_Laugh_local
-		=#
 	end
 end
-end
-
-#
-if false
-figure()
-imshow(real.(exact_diffs))#./maximum(exp_prob_CF))
-title("Exact Diffs")
-colorbar()
-end
-if false
-figure()
-#imshow(real.(randmat_diffs))
-plot(coef_vals,errors,"-p")
-title("Rand Matrix Diff Errors")
-#colorbar()
-end
-string_versions = ["Reg","My 1","My Diag"]
-for i in 1:3
-wh = string_versions[i]
-if false
-figure()
-imshow(real.(randshift_diffs_log[i]))
-title("Rand Shift Diffs Log $wh")
-colorbar()
-end
-end
-if true
-figure()
-imshow(exp_prob_CF_reg)
-title("Sep CF Wavefunc")
-colorbar()
-end
-if false
-figure()
-imshow(exp_prob_CF_reg)#./maximum(exp_prob_CF))
-title("Reg CF Wavefunc")
-colorbar()
-end
-if false
-figure()
-imshow(exp_prob_Laugh)#./maximum(exp_prob_Laugh))
-title("Laughlin Wavefunc")
-colorbar()
-end
-if false
-figure()
-imshow(real.(logjast))
-title("Jastrow")
-colorbar()
-end
-if false
-figure()
-imshow(real.(logj1))
-title("J_one")
-colorbar()
-end
-if false
-figure()
-imshow(real.(logslater))
-title("Slater")
-colorbar()
-end
-if false
-figure()
-imshow(exp_prob_CF./real.(logjast))
-title("Quotient")
-colorbar()
-end
-
-
+=#
 
 #scatter3D(xs_plot,ys_plot,reg_prob./maximum(reg_prob),label="Reg")
 #scatter3D(xs_plot,ys_plot,exp_prob./maximum(exp_prob),label="Exp")
@@ -330,23 +206,5 @@ end
 #ylabel("Y")
 #
 
-
-
-
-
-
-#array_data = Iterators.flatten([qp1_data[2][i,:] for i in 1:1])#Iterators.flatten([only_no_overlaps_data[2][i,:] for i in 2:particles])
-#hist2D(real.(array_data),-imag.(array_data),bins=100)
-#
-#dens_data_1q = get_density(particles,n,p,qp1_data,200)
-#dens_data_2q = get_density(particles,n,p,qp2_data,200)
-#qpart_location = qp1_data[1][2][1]
-#
-#plot(dens_data_1q[1]./rm,dens_data_1q[2],label="1-QP")#"$n/$fill_denom")
-#plot(dens_data_2q[1]./rm,dens_data_2q[2],label="2-QP")#"$n/$fill_denom")
-#scatter([real(qpart_location)]./rm,[dens_data_1q[2][1]],label="QP")
-#legend()
-#end
-#
 
 "fin"
