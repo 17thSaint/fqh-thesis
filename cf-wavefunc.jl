@@ -1,6 +1,13 @@
 #import Pkg; Pkg.add("LinearAlgebra")
 using LinearAlgebra
 
+function start_rand_config(num_parts,n,p)
+	filling = n/(2*p*n+1)
+	rm = sqrt(2*num_parts/filling)
+	config = [rand(Float64)*rand(-1:2:1)*rm - im*rand(Float64)*rand(-1:2:1)*rm for i in 1:num_parts]
+	return config
+end
+
 function get_wf_elem(num_parts,element,n,qpart=[0,[0]])
 	qpart_shift = qpart[1]
 	if n == 2 && element[1] > num_parts/2 + qpart_shift
@@ -292,7 +299,6 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 	num_parts = length(config)
 	matrix_element = [row,part]
 	bar, l = get_wf_elem(num_parts,matrix_element,n,qpart)
-	logJi, logJiprime, logJi2prime = p*get_logJi(config,part), get_logJiprime(config,part,p), get_logJi2prime(config,part,p)
 	qpart_shift = qpart[1]
 	lstar2 = 2*1*n + 1
 	coeff = [(1/lstar2) - 1,1/lstar2^2 - 2\lstar2 + 1]
@@ -300,16 +306,21 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 		if bar > 0
 			
 			if l == 0
+				logJiprime = get_logJiprime(config,part,p)
 				result = log(2) + logJiprime
 			else
+				logJi = p*get_logJi(config,part)
+				logJiprime = get_logJiprime(config,part,p)
 				a = log(2) + log(l) + (l-1)*log(config[part]) + logJi
 				b = log(2) + l*log(config[part]) + logJiprime
 				result = get_log_add(a,b)
 			end
 		else
 			if l == 0
+				logJi = p*get_logJi(config,part)
 				result = logJi
 			else
+				logJi = p*get_logJi(config,part)
 				result = logJi + l*log(config[part])
 			end
 		end
@@ -318,10 +329,15 @@ function get_log_elem_proj(config,part,row,n,p,qpart=[0,[0]])
 		logetabar = log(conj(qpart[2][row]))
 		log_exppart = get_qpart_wf_exp(config,qpart,row,part,n,false)
 		if n == 1
+			logJi = p*get_logJi(config,part)
+			logJiprime = get_logJiprime(config,part,p)
 			part1 = logetabar + log(Complex(coeff[n])) + logJi
 			part2 = log(2) + logJiprime
 			result = log_exppart + get_log_add(part1,part2)
 		else
+			logJi = p*get_logJi(config,part)
+			logJiprime = get_logJiprime(config,part,p)
+			logJi2prime = get_logJi2prime(config,part,p)
 			part1 = 2*logetabar + logJi + log(Complex(coeff[n]))
 			part2 = log(4) + logetabar + logJiprime
 			part3 = log(4) + logJi2prime
@@ -348,37 +364,31 @@ function get_log_det(matrix,reg_input=false)
 	rejected_indices = []
 	starting = matrix
 	all_equal_count = 0
-	#expected_reg_det = det(exp.(matrix))
-	if reg_input
-		#expected_reg_det = det(matrix)
-		starting = log.(matrix)
-	end
+	
 	changed = starting + fill(0.0,(num_parts,num_parts))
 	for i in 1:num_parts
-		allowed_indices = [m for m in 1:num_parts]
-		overlap = [findall(q->q == m,allowed_indices) for m in rejected_indices]
-		true_overlap = sort([overlap[ov][1] for ov in 1:length(overlap)])
-		#println(true_overlap)
-		deleteat!(allowed_indices,true_overlap)
-
-		row = [real(changed[i,j]) for j in allowed_indices]
-		val, local_index = findmax(row)
-		dats = findall(q->q == val,real.(changed[i,:]))
-		index = dats[1]
-		#println(length(dats),", ",length(allowed_indices)+i-1)
-		if length(dats) == length(allowed_indices) + i - 1
-			all_equal_count += 1
-			index = all_equal_count
-			#println("Row All Equal: $i")
+		row = real(changed[i,:])
+		validation = true
+		j = 0
+		index = 0
+		while validation
+			val = sort(row)[end - j]
+			guess_index = findall(q->q == val,real.(changed[i,:]))[1]
+			if length(findall(q->q == index,rejected_indices)) > 0
+				j += 1
+			else
+				index = guess_index
+				validation = false
+			end
 		end
 		maxes[i] = changed[i,index]
-		changed[i,:] = [changed[i,j] - maxes[i] for j in 1:num_parts]
+		changed[i,:] .-= maxes[i]
 		append!(rejected_indices,index)
 	end
 	final = changed
 	reduced_logdet = sum(maxes) + log(Complex(det(exp.(final))))
-	#reduced_regdet = exp(reduced_logdet)
-	return reduced_logdet#,expected_reg_det,reduced_regdet,matrix,starting,final,maxes
+
+	return reduced_logdet,maxes,final
 end
 
 
@@ -394,16 +404,17 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 				println("NaN: ",j,", ",i)
 			#	break
 			end
-			log_matrix[i,j] += data_here[1]
+			log_matrix[i,j] = data_here[1]
 		end
 	end
-
-	result = get_diag_log_det(log_matrix)[1]
+	
+	result = get_log_det(log_matrix)[1]
 	
 	for i in 1:num_parts
 		result += -abs2(config[i])/4
 	end
-	return result
+	
+	return result,result_broken
 end
 
 function dist_btw_Laugh(part_1,part_2)
@@ -423,9 +434,6 @@ function prob_wavefunc_laughlin(complex_config, m)
 			full += -m*log( dist )
 		end
 		
-		for k in 1:qhole[1]
-			full += -2*log( dist_btw_Laugh(config[j],qhole[k+1]))
-		end
 		full += 0.5 * (config[j][1]^2 + config[j][2]^2)
 	end
 	return full
