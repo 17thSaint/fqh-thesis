@@ -198,6 +198,8 @@ function find_CF_data(folder,particles,n,p,rad_choice,qpart_count,log_form)
 			end
 		end
 		#
+	else
+		println("Only Single File Found")
 	end
 	if folder != "NA"
             cd("..")
@@ -232,13 +234,13 @@ end
 
 #=
 log_form = true
-particles = 12
+particles = 16
 np_vals = [[1,1],[1,2],[2,1]]
 for k in 1:1
 	n,p = np_vals[k]
-	for j in 2:2
+	for j in 1:2
 		qpart_count = j
-		for i in 5:5
+		for i in 3:7
 			rad_choice = i
 			alldats = find_CF_data("cf-data",particles,n,p,rad_choice,qpart_count,log_form)
 			if alldats[2]

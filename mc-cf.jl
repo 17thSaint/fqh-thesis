@@ -4,13 +4,6 @@ using Statistics,PyPlot,LaTeXStrings
 include("cf-wavefunc.jl")
 include("read-CF-data.jl")
 
-function start_rand_config(num_parts,n,p)
-	filling = n/(2*p*n+1)
-	rm = sqrt(2*num_parts/filling)
-	config = [rand(Float64)*rand(-1:2:1)*rm - im*rand(Float64)*rand(-1:2:1)*rm for i in 1:num_parts]
-	return config
-end
-
 function move_particle(num_parts,chosen,step_size)
 	shift_matrix = [0.0+im*0.0 for i = 1:num_parts]
 	shift_matrix[chosen] += rand(-1:2:1)*rand(Float64)*step_size - im*rand(-1:2:1)*rand(Float64)*step_size
@@ -92,7 +85,7 @@ function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=fal
 		if i%(samp_freq*100) == 0
 			number += 1#Int((index-1))#/100)
 			data = [time_config[:,index-100:index-1],time_wavefunc[index-100:index-1]]
-			write_pos_data_hdf5("cf-data",steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+			write_pos_data_hdf5("NA",steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
 		#
 		if i%(collection_time*0.01) == 0
@@ -100,6 +93,8 @@ function main(n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=fal
 		end
 		
 	end
+	data_last = [time_config[:,end-100:end],time_wavefunc[end-100:end-1]]
+	write_pos_data_hdf5("NA",steps,num_parts,n,p,data,rad_count,100,qpart,log_form)
 	acc_rate = acc_count/(num_parts*steps)
 
 	return acc_rate,time_config,time_wavefunc
@@ -127,14 +122,14 @@ particles = 16
 mc_steps = 100000
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
-which_np = parse(Int64,ARGS[1])
+which_np = 2#parse(Int64,ARGS[1])
 n,p = np_vals[which_np]
 fill_denom = 2*n*p + 1
 filling = n/(2*p*n+1)
 rm = sqrt(2*particles/filling)
 step_size = 0.4 + 0.175*rm
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
-k = 5
+k = parse(Int64,ARGS[1])
 rad_choice = k
 x_rad = x_rads[rad_choice]
 qpart_choices = [[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]

@@ -414,7 +414,7 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 		result += -abs2(config[i])/4
 	end
 	
-	return result,result_broken
+	return result
 end
 
 function dist_btw_Laugh(part_1,part_2)
