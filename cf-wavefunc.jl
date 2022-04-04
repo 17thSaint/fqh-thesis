@@ -163,6 +163,7 @@ function get_wavefunc(config,n,p,qpart=[0,[0]])
 			matrix_full[i,j] = dats
 		end
 	end
+	println(matrix_full)
 	wavefunc *= det(matrix_full)
 	return wavefunc
 end
