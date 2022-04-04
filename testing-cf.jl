@@ -153,9 +153,39 @@ end;
 	# testing particle overlapping quasiparticle is zero log form
 	qpart_overlap_wavefunc_log = get_wavefunc_fromlog(coords4,n,p,qpart_test)
 	@test isapprox(exp(qpart_overlap_wavefunc_log),0.0,atol=10^(-5))
+	
 end;
 
-
+if n < 2
+@testset "origin-div" begin
+	rm = sqrt(2*12*(2*p*n+1)/n)
+	data_count = 100
+	xs = [-0.5*rm + i*(2*0.5*rm)/data_count for i in 1:data_count]
+	coords_config = 10*(rand(12) + im*rand(12))
+	laugh_wavefunc = fill(0.0,(data_count,data_count))
+	cf_wavefunc = fill(0.0,(data_count,data_count))
+	for i in 1:length(xs)
+		local_x = xs[i]
+		for j in 1:length(xs)
+			local_y = xs[j]
+			#append!(xs_plot,[local_x])
+			#append!(ys_plot,[local_y])
+			coords_config[1] = local_x - im*local_y
+			
+			laugh_wavefunc[i,j] = -prob_wavefunc_laughlin(coords_config,2*p*n+1)
+			cf_wavefunc[i,j] = 2*real(get_wavefunc_fromlog(coords_config,n,p))
+		end
+	end
+	normed_laugh_wavefunc = laugh_wavefunc./maximum(laugh_wavefunc)
+	normed_cf_wavefunc = cf_wavefunc./maximum(cf_wavefunc)
+	diff = abs.(normed_laugh_wavefunc-normed_cf_wavefunc)
+	for i in 1:length(xs)
+		for j in 1:length(xs)
+			@test isapprox(diff[i,j],0.0,atol=10^(-5))
+		end
+	end
+end;
+end
 
 
 
