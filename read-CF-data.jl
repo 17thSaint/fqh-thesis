@@ -236,11 +236,11 @@ end
 log_form = true
 particles = 16
 np_vals = [[1,1],[1,2],[2,1]]
-for k in 1:1
+for k in 3:3
 	n,p = np_vals[k]
 	for j in 1:2
 		qpart_count = j
-		for i in 3:7
+		for i in 3:5
 			rad_choice = i
 			alldats = find_CF_data("cf-data",particles,n,p,rad_choice,qpart_count,log_form)
 			if alldats[2]

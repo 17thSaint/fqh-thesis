@@ -163,7 +163,7 @@ function get_wavefunc(config,n,p,qpart=[0,[0]])
 			matrix_full[i,j] = dats
 		end
 	end
-	println(matrix_full)
+	#println(matrix_full)
 	wavefunc *= det(matrix_full)
 	return wavefunc
 end
@@ -415,7 +415,7 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 		result += -abs2(config[i])/4
 	end
 	
-	return result
+	return result,log_matrix
 end
 
 function dist_btw_Laugh(part_1,part_2)
