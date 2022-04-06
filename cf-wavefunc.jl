@@ -33,22 +33,63 @@ function get_qpart_wf_exp(config,qpart,which_qpart,part,n,exp_check=true)
 	return result
 end
 
-function get_Jis(config,part,p)
+function get_Jis(config,part,rejected_parts=[])
 	ji = 1.0
 	num_parts = length(config)
 	for i in 1:num_parts
-		if i == part
+		if i == part || i in rejected_parts
 			continue
 		end
 		dist_btw = config[part]-config[i]
-		ji *= dist_btw^p
+		ji *= dist_btw
 	end
-	#=
-	if real(qhole[1]) > 0.1
-		ji *= config[part] - qhole[2]
-	end
-	=#
 	return ji
+end
+
+function check_rej_parts_allowed(rejected_parts,num_parts,part)
+	repeats = false
+	if any(rejected_parts .== part) || length(unique(rejected_parts)) != length(rejected_parts)
+		repeats = true
+	end
+	too_large = false
+	if rejected_parts !< num_parts + 1
+		too_large = true
+	end
+	return repeats,too_large
+end
+
+function get_nth_deriv_Ji(config,part,order)
+	parts_count = length(config)
+	all_part_dists = []
+	atomic_count = parts_count - order
+	sum_elem_counts = [atomic_count + i - 1 for i in 1:order]
+	total_length = factorial(parts_count-1)/factorial(parts_count-order-1)
+	all_elements = [0.0+im*0.0 for i in 1:total_length]
+	
+	rejected_parts = [1 for i in 1:order]
+	if part == 1
+		rejected_parts .+= 1
+	end
+	
+	for i in 1:total_length
+		if (i-1)%atomic_count == 0.0
+			next_vals_not_allowed = true
+			which_sum = 1
+			while next_vals_not_allowed
+				rejected_parts[end-which_sum] += 1
+				not_allowed_repeats, not_allowed_too_large = check_rej_parts_allowed(rejected_parts,parts_count,part)
+				if not_allowed_too_large
+					rejected_parts[end-which_sum:end] .= 1
+					which_sum += 1
+				elseif not_allowed_repeats
+				
+				end
+				
+			end
+		end
+	end
+	
+	return total_length-guess_length
 end
 
 function get_Jiprime(config,part,p)
@@ -131,7 +172,7 @@ function get_elem_projection(config,part,row,n,p,qpart=[0,[0]])
 	num_parts = length(config)
 	matrix_element = [row,part]
 	qpart_shift = qpart[1]
-	Ji, Jiprime, Ji2prime = get_Jis(config,part,p),get_Jiprime(config,part,p),get_Ji2prime(config,part,p)
+	Ji, Jiprime, Ji2prime = get_Jis(config,part)^p,get_Jiprime(config,part,p),get_Ji2prime(config,part,p)
 	if row >= qpart_shift + 1
 		bar, l = get_wf_elem(num_parts,matrix_element,n)
 		if bar > 0
@@ -439,6 +480,8 @@ function prob_wavefunc_laughlin(complex_config, m)
 	end
 	return full
 end
+
+
 
 
 
