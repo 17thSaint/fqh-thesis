@@ -47,11 +47,13 @@ function get_Jis(config,part,rejected_parts=[])
 end
 
 function nested_loop(loop_level,allowed_vals_dict,order,parts_count)
-	sum_parts = [0 for i in 1:order-1]
+	#sum_parts = [0 for i in 1:order-1]
+	
 	if loop_level == order
+		ji_rej_sets = [[] for i in 1:length(allowed_vals_dict["s$order"])]
 		for i in 1:length(allowed_vals_dict["s$order"])
 			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
-			ji_rejected_vals = deleteat!([j for j in 1:parts_count],ji_allowed_vals)
+			ji_rejects = deleteat!([j for j in 1:parts_count],ji_allowed_vals)
 			#=
 			sum_parts = [0 for k in 1:order]
 			for k in 1:order-1
@@ -59,10 +61,13 @@ function nested_loop(loop_level,allowed_vals_dict,order,parts_count)
 				sum_parts[k] = deleteat!(allowed_vals_dict["s$k"].+(1-1),findall(x->x in allowed_vals_dict["s$next"],allowed_vals_dict["s$k"]))[1]
 			end
 			sum_parts[end] = deleteat!(allowed_vals_dict["s$order"].+(1-1),findall(x->x in ji_allowed_vals,allowed_vals_dict["s$order"]))[1]
-			println("Sum Parts: $sum_parts","Jis: ",ji_allowed_vals)
+			println(i,", Sum Parts: $sum_parts","Jis: ",ji_allowed_vals)
 			=#
-			return ji_rejected_vals
+			ji_rej_sets[i] = ji_rejects
 		end
+		println(ji_rej_sets)
+		return ji_rej_sets
+	
 	end
 	next_level = loop_level + 1
 	for i in 1:length(allowed_vals_dict["s$loop_level"])
@@ -76,30 +81,13 @@ end
 function get_nth_deriv_Ji(config,part,order)
 	parts_count = length(config)
 	result = 0.0+im*0.0
-	allowed_vals_dict = Dict([("s$i",[]) for i in 1:order])
-	allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
-	#=
-	for i1 in 1:length(allowed_vals_dict["s1"])
-		sum1_part = allowed_vals_dict["s1"][i1]
-		allowed_vals_dict["s2"] = deleteat!(allowed_vals_dict["s1"].+(1-1),i1)
-		#println("Sum 1 Part: ",sum1_part,", Sum 2 Allowed Vals: ",allowed_vals_dict["s2"])
-		for i2 in 1:length(allowed_vals_dict["s2"])
-			sum2_part = allowed_vals_dict["s2"][i2]
-			allowed_vals_dict["s3"] = deleteat!(allowed_vals_dict["s2"].+(1-1),i2)
-			for i3 in 1:length(allowed_vals_dict["s3"])
-				sum3_part = allowed_vals_dict["s3"][i3]
-				ji_allowed_vals = deleteat!(allowed_vals_dict["s3"].+(1-1),i3)
-				ji_rejected_vals = deleteat!([i for i in 1:parts_count],ji_allowed_vals)
-				println("Sum 1 Part: ",sum1_part,", Sum 2 Part: ",sum2_part,", Sum 3 Part: ",sum3_part,", Ji Allowed Vals: ",ji_allowed_vals)
-				#local_ji = get_Jis(config.part,ji_rejected_vals)
-				#result += local_ji
-			end
-		end
-	end
-	=#
-	ji_vals = nested_loop(1,allowed_vals_dict,order,parts_count)
+	starting_allowed_vals_dict = Dict([("s$i",[]) for i in 1:order])
+	starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
 	
-	return ji_vals#total_length-guess_length
+	given_stuff = nested_loop(1,starting_allowed_vals_dict,order,parts_count)
+	println("Given",given_stuff)
+	
+	return given_stuff
 end
 
 function get_Jiprime(config,part,p)
