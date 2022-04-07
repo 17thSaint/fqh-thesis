@@ -43,7 +43,7 @@ particles = parse(Int64,ARGS[3])
 	end
 end;
 =#
-if false
+if true
 @testset "classics" begin
 
 	coords3 = 10*(rand(particles) + im*rand(particles))
@@ -57,26 +57,26 @@ if false
 	#
 	# testing that when particles overlap Ji goes to zero
 	coords1[1] = coords1[3]
-	one_Ji_2 = get_Jis(coords1,2,p)
+	one_Ji_2 = p*get_Jis(coords1,2)
     	#one_Ji_2_nop = get_Jis_nop(coords1,1)
 	one_wavefunc = abs2(get_wavefunc(coords1,n,p))
 	#one_log_wavefunc = abs2(get_wavefunc_fromlog(coords1,n,p))
 	#@test !isapprox(one_wavefunc,0.0,atol=sqrt(eps()))
 	#@test !isapprox(one_log_wavefunc,0.0,atol=sqrt(eps()))
 	#@test !isapprox(one_Ji_2,0.0,atol=sqrt(eps()))
-	one_Ji_3 = get_Jis(coords1,3,p)
+	one_Ji_3 = p*get_Jis(coords1,3)
 	@test isapprox(one_Ji_3,0.0,atol=sqrt(eps()))
 
 	coords2[2] = coords2[1]
-	two_Ji_2 = get_Jis(coords2,2,p)
+	two_Ji_2 = p*get_Jis(coords2,2)
 	@test isapprox(two_Ji_2,0.0,atol=sqrt(eps()))
-	two_Ji_3 = get_Jis(coords2,3,p)
+	two_Ji_3 = p*get_Jis(coords2,3)
 	@test !isapprox(two_Ji_3,0.0,atol=sqrt(eps()))
 	
 	# testing that ji prime is the numerical derivative of ji
-	one_ji = get_Jis(comp_coords1,1,p)
+	one_ji = p*get_Jis(comp_coords1,1)
 	one_jiprime = get_Jiprime(comp_coords1,1,p)
-	two_ji = get_Jis(comp_coords2,1,p)
+	two_ji = p*get_Jis(comp_coords2,1)
 	two_jiprime = get_Jiprime(comp_coords2,1,p)
 	num_jiprime = (two_ji - one_ji)/ep
 	@test isapprox(num_jiprime,one_jiprime,atol=10^(-3))
@@ -98,20 +98,32 @@ if false
 	
 	# testing log addition
 	rand1 = 10*(rand(Float64)+im*rand(Float64))
-	rand2 = 10*(rand(Float64)+im*rand(Float64) )
+	rand2 = 10*(rand(Float64)+im*rand(Float64))
 	logadd = get_log_add(rand1,rand2)
 	regadd = log(exp(rand1) + exp(rand2))
-	@test isapprox(real(logadd),real(regadd),atol=10^(-2))
-	if imag(logadd) > 0 && imag(regadd) > 0
-		modpi = (abs(imag(logadd))-abs(imag(regadd)))/pi
+	
+	rand_nest = 10*(rand(10)+im*rand(10))
+	logadd_nest = get_nested_logadd(1,rand_nest,rand_nest[1]+1-1)
+	regadd_nest = log(sum(exp.(rand_nest)))
+	
+	logs = [logadd,logadd_nest]
+	regs = [regadd,regadd_nest]
+	
+	for i in 1:2
+	log_here = logs[i]
+	reg_here = regs[i]
+	@test isapprox(real(log_here),real(reg_here),atol=10^(-2))
+	if imag(log_here) > 0 && imag(reg_here) > 0
+		modpi = (abs(imag(log_here))-abs(imag(reg_here)))/pi
 	elseif imag(logadd) < 0 && imag(regadd) < 0
-		modpi = (abs(imag(logadd))-abs(imag(regadd)))/pi
+		modpi = (abs(imag(log_here))-abs(imag(reg_here)))/pi
 	else
-		modpi = (abs(imag(logadd))+abs(imag(regadd)))/pi
+		modpi = (abs(imag(log_here))+abs(imag(reg_here)))/pi
 	end
 	rounded = round(modpi,digits=0)
 	#println(logadd,", ",regadd)
 	@test isapprox(modpi,rounded,atol=10^(-1))
+	end
 	
 	# testing that ji2prime is the same reg vs log
 	reg_ji2prime = log(get_Ji2prime(coords3,1,p))
@@ -142,9 +154,9 @@ if false
 	@test isapprox(reg_wavefunc/exp(log_wavefunc),1.0,atol=10^(-3))
 	#
 	coords_qpart_test = 100 .*start_rand_config(particles,n,p)
-	qpart_test = [2,100 .*start_rand_config(2,n,p)]
+	#qpart_test = [2,100 .*start_rand_config(2,n,p)]
 	# testing wavefunction is same for reg and log with quasiparticles
-	#qpart_test = [2,[rand(Float64)+im*rand(Float64),rand(Float64)+im*rand(Float64)]]
+	qpart_test = [2,[rand(Float64)+im*rand(Float64),rand(Float64)+im*rand(Float64)]]
 	reg_wavefunc = get_wavefunc(coords_qpart_test,n,p,qpart_test)
 	log_wavefunc = get_wavefunc_fromlog(coords_qpart_test,n,p,qpart_test)
 	@test isapprox(reg_wavefunc,exp(log_wavefunc),atol=10^(-3))
@@ -184,11 +196,11 @@ if true
 end;
 end
 
-if false && n < 2
+if true && n < 2
 @testset "origin-div" begin
 	rm = sqrt(2*12*(2*p*n+1)/n)
 	data_count = 50
-	xs = [-0.5*rm + i*(2*0.5*rm)/data_count for i in 1:data_count]
+	xs = [-1.5*rm + i*(2*1.5*rm)/data_count for i in 1:data_count]
 	coords_config = 10*(rand(12) + im*rand(12))
 	laugh_wavefunc = fill(0.0,(data_count,data_count))
 	cf_wavefunc = fill(0.0,(data_count,data_count))

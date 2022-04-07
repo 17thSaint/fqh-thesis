@@ -410,7 +410,7 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 		result += -abs2(config[i])/4
 	end
 	
-	return result,log_matrix
+	return result#,log_matrix
 end
 
 function dist_btw_Laugh(part_1,part_2)
@@ -493,6 +493,45 @@ function get_nth_deriv_Ji(config,part,order,log_form=false)
 	end
 	
 	return result
+end
+
+function get_pascals_triangle(n::Int)
+	n == 0 && return [],0
+	n == 1 && return [[1]],1
+	t = get_pascals_triangle(n-1)[1]
+	push!(t, [t[end];0] + [0;t[end]])
+	row = t[end]
+	folded = [row[i] + row[end-i+1] for i in 1:Int(floor(n/2))]
+	n%2 != 0.0 && append!(folded,[ row[Int(ceil(n/2))] ])
+	return t,folded
+end
+
+function get_rf_elem_proj(config,part,row)
+	jis = [get_Jis(config,part)]
+	append!(jis,[get_nth_deriv_Ji(config,part,i) for i in 1:row-1])
+	tri_coeffs = get_pascals_triangle(row)[2]
+	deriv_orders = [[row-i+1,i] for i in 1:length(tri_coeffs)]
+	#string_result = join([string(tri_coeffs[i],"J(",deriv_orders[i][1]-1,"')J(",deriv_orders[i][2]-1,"')") for i in 1:length(tri_coeffs)],"+")
+	indiv_terms = [tri_coeffs[i]*jis[deriv_orders[i][1]]*jis[deriv_orders[i][2]] for i in 1:length(tri_coeffs)]
+	result = 2*sum(indiv_terms)
+	return result
+end
+
+function get_rf_wavefunc(config)
+	num_parts = length(config)
+	wavefunc = 1.0
+	full_matrix = fill(0.0+im*0.0,(num_parts,num_parts))
+	for i in 1:num_parts
+		if i <= num_parts
+			wavefunc *= exp(-abs2(config[i])/4)
+		end
+		for j in 1:num_parts
+			full_matrix[i,j] = get_rf_elem_proj(config,j,i)
+		end
+	end
+	mat_det = det(full_matrix)
+	wavefunc *= mat_det
+	return wavefunc
 end
 
 
