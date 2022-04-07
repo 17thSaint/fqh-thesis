@@ -43,7 +43,8 @@ particles = parse(Int64,ARGS[3])
 	end
 end;
 =#
-@testset "all" begin
+if false
+@testset "classics" begin
 
 	coords3 = 10*(rand(particles) + im*rand(particles))
 	coords4 = 10*(rand(particles) + im*rand(particles))
@@ -158,8 +159,32 @@ end;
 	@test isapprox(exp(2*real(qpart_overlap_wavefunc_log)),0.0,atol=10^(-5))
 	
 end;
-#=
-if n < 2
+end
+
+if true
+@testset "ji-derivs" begin
+	local_config = 10 .*(rand(particles) + im.*rand(particles))
+	part = 1
+	
+	nest_deriv_1 = get_nth_deriv_Ji(local_config,part,1)
+	og_deriv_1 = get_Jiprime(local_config,part,1)
+	@test isapprox(og_deriv_1,nest_deriv_1,atol=sqrt(eps()))
+	
+	nest_deriv_2 = get_nth_deriv_Ji(local_config,part,2)
+	og_deriv_2 = get_Ji2prime(local_config,part,1)
+	@test isapprox(og_deriv_2,nest_deriv_2,atol=sqrt(eps()))
+	
+	nest_log_deriv_1 = get_nth_deriv_Ji(local_config,part,1,true)
+	og_log_deriv_1 = get_logJiprime(local_config,part,1)
+	@test isapprox(og_deriv_1,nest_deriv_1,atol=sqrt(eps()))
+	
+	nest_log_deriv_2 = get_nth_deriv_Ji(local_config,part,2,true)
+	og_log_deriv_2 = get_logJi2prime(local_config,part,1)
+	@test isapprox(og_log_deriv_2,nest_log_deriv_2,atol=sqrt(eps()))
+end;
+end
+
+if false && n < 2
 @testset "origin-div" begin
 	rm = sqrt(2*12*(2*p*n+1)/n)
 	data_count = 50
@@ -189,7 +214,7 @@ if n < 2
 	end
 end;
 end
-=#
+#
 
 
 

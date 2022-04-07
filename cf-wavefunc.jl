@@ -46,50 +46,6 @@ function get_Jis(config,part,rejected_parts=[])
 	return ji
 end
 
-function nested_loop(loop_level,allowed_vals_dict,order,parts_count)
-	#sum_parts = [0 for i in 1:order-1]
-	
-	if loop_level == order
-		ji_rej_sets = [[] for i in 1:length(allowed_vals_dict["s$order"])]
-		for i in 1:length(allowed_vals_dict["s$order"])
-			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
-			ji_rejects = deleteat!([j for j in 1:parts_count],ji_allowed_vals)
-			#=
-			sum_parts = [0 for k in 1:order]
-			for k in 1:order-1
-				next = k+1
-				sum_parts[k] = deleteat!(allowed_vals_dict["s$k"].+(1-1),findall(x->x in allowed_vals_dict["s$next"],allowed_vals_dict["s$k"]))[1]
-			end
-			sum_parts[end] = deleteat!(allowed_vals_dict["s$order"].+(1-1),findall(x->x in ji_allowed_vals,allowed_vals_dict["s$order"]))[1]
-			println(i,", Sum Parts: $sum_parts","Jis: ",ji_allowed_vals)
-			=#
-			ji_rej_sets[i] = ji_rejects
-		end
-		println(ji_rej_sets)
-		return ji_rej_sets
-	
-	end
-	next_level = loop_level + 1
-	for i in 1:length(allowed_vals_dict["s$loop_level"])
-		sum_part = allowed_vals_dict["s$loop_level"][i]
-		allowed_vals_dict["s$next_level"] = deleteat!(allowed_vals_dict["s$loop_level"].+(1-1),i)
-		nested_loop(loop_level + 1,allowed_vals_dict,order,parts_count)
-	end
-	
-end
-
-function get_nth_deriv_Ji(config,part,order)
-	parts_count = length(config)
-	result = 0.0+im*0.0
-	starting_allowed_vals_dict = Dict([("s$i",[]) for i in 1:order])
-	starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
-	
-	given_stuff = nested_loop(1,starting_allowed_vals_dict,order,parts_count)
-	println("Given",given_stuff)
-	
-	return given_stuff
-end
-
 function get_Jiprime(config,part,p)
 	jiprime = 0
 	num_parts = length(config)
@@ -207,11 +163,11 @@ function get_wavefunc(config,n,p,qpart=[0,[0]])
 	return wavefunc
 end
 
-function get_logJi(config,part)
+function get_logJi(config,part,rejected_parts=[])
 	logji = 0.0
 	num_parts = length(config)
 	for i in 1:num_parts
-		if i == part
+		if i == part || i in rejected_parts
 			continue
 		end
 		dist_btw = config[part]-config[i]
@@ -477,6 +433,66 @@ function prob_wavefunc_laughlin(complex_config, m)
 		full += 0.5 * (config[j][1]^2 + config[j][2]^2)
 	end
 	return full
+end
+
+function nested_loop(loop_level,allowed_vals_dict,all_ji_reject_sets)
+	#sum_parts = [0 for i in 1:order-1]
+	order = length(keys(allowed_vals_dict))
+	parts_count = length(allowed_vals_dict["s1"]) + 1
+	if loop_level == order
+		for i in 1:length(allowed_vals_dict["s$order"])
+			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
+			ji_rejects = deleteat!([j for j in 1:parts_count],ji_allowed_vals)
+			#=
+			sum_parts = [0 for k in 1:order]
+			for k in 1:order-1
+				next = k+1
+				sum_parts[k] = deleteat!(allowed_vals_dict["s$k"].+(1-1),findall(x->x in allowed_vals_dict["s$next"],allowed_vals_dict["s$k"]))[1]
+			end
+			sum_parts[end] = deleteat!(allowed_vals_dict["s$order"].+(1-1),findall(x->x in ji_allowed_vals,allowed_vals_dict["s$order"]))[1]
+			println(i,", Sum Parts: $sum_parts","Jis: ",ji_allowed_vals)
+			=#
+			append!(all_ji_reject_sets,[ji_rejects])
+		end
+		
+		return 
+	
+	end
+	next_level = loop_level + 1
+	for i in 1:length(allowed_vals_dict["s$loop_level"])
+		sum_part = allowed_vals_dict["s$loop_level"][i]
+		allowed_vals_dict["s$next_level"] = deleteat!(allowed_vals_dict["s$loop_level"].+(1-1),i)
+		nested_loop(loop_level + 1,allowed_vals_dict,all_ji_reject_sets)
+	end
+	
+end
+
+function get_nested_logadd(loop_level,all_vals,result)
+	if loop_level == length(all_vals)
+		return result
+	end
+	
+	result = get_log_add(result,all_vals[loop_level+1])
+	get_nested_logadd(loop_level + 1,all_vals,result)
+end
+
+function get_nth_deriv_Ji(config,part,order,log_form=false)
+	parts_count = length(config)
+	result = 0.0+im*0.0
+	starting_allowed_vals_dict = Dict([("s$i",[]) for i in 1:order])
+	starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
+	
+	all_ji_reject_sets = []
+	nested_loop(1,starting_allowed_vals_dict,all_ji_reject_sets)
+	if !log_form
+		all_jis = [get_Jis(config,part,all_ji_reject_sets[i]) for i in 1:length(all_ji_reject_sets)]
+		result = sum(all_jis)
+	else
+		all_jis = [get_logJi(config,part,all_ji_reject_sets[i]) for i in 1:length(all_ji_reject_sets)]
+		result = get_nested_logadd(1,all_jis,all_jis[1]+1-1)
+	end
+	
+	return result
 end
 
 
