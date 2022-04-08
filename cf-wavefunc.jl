@@ -1,5 +1,5 @@
 #import Pkg; Pkg.add("LinearAlgebra")
-using LinearAlgebra,LaTeXStrings
+using LinearAlgebra
 
 function start_rand_config(num_parts,n,p)
 	filling = n/(2*p*n+1)

@@ -2,7 +2,7 @@
 #import Pkg; Pkg.add("LinearAlgebra")
 using HDF5,LinearAlgebra
 
-function write_pos_data_hdf5(folder,mc_steps,particles,n,p,data,rad_count,which,qpart=[0,[0]],log_form=false)
+function write_pos_data_hdf5(folder,vers,mc_steps,particles,n,p,data,rad_count,which,qpart=[0,[0]],log_form=false)
 	println("Starting Data Write")
 	if folder != "NA"
 		cd("..")
@@ -11,15 +11,15 @@ function write_pos_data_hdf5(folder,mc_steps,particles,n,p,data,rad_count,which,
 	qpartcount = qpart[1]
 	if log_form
 		if qpartcount > 0
-			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$rad_count-rad-log-$which.hdf5","w")
+			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$rad_count-rad-log-$which.hdf5","w")
 		else 
-			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$rad_count-log.hdf5","w")
+			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$rad_count-log.hdf5","w")
 		end
 	else
 		if qpartcount > 0
-			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$rad_count-rad-$which.hdf5","w")
+			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$rad_count-rad-$which.hdf5","w")
 		else 
-			binary_file_pos = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$rad_count.hdf5","w")
+			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$rad_count.hdf5","w")
 		end
 	end
 	create_group(binary_file_pos,"metadata")
@@ -41,7 +41,7 @@ function write_pos_data_hdf5(folder,mc_steps,particles,n,p,data,rad_count,which,
 	println("Data Added, File Closed")
 end
 
-function write_comb_CF_hdf5(folder,particles,n,p,data,rad_choice,log_form)
+function write_comb_CF_hdf5(folder,vers,particles,n,p,data,rad_choice,log_form)
 	println("Starting Data Write")
 	if folder != "NA"
 		cd("..")
@@ -49,9 +49,9 @@ function write_comb_CF_hdf5(folder,particles,n,p,data,rad_choice,log_form)
 	end
 	qpart_count = data[1][1]
 	if log_form
-		binary_file_pos = h5open("CF-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice-log.hdf5","w")
+		binary_file_pos = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice-log.hdf5","w")
 	else
-		binary_file_pos = h5open("CF-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","w")
+		binary_file_pos = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","w")
 	end
 	create_group(binary_file_pos,"metadata")
 	metadata = binary_file_pos["metadata"]
@@ -72,15 +72,15 @@ function write_comb_CF_hdf5(folder,particles,n,p,data,rad_choice,log_form)
 	println("Data Added, File Closed")
 end
 
-function read_comb_CF_hdf5(folder,particles,n,p,rad_choice,qpart_count,log_form=false)
+function read_comb_CF_hdf5(folder,vers,particles,n,p,rad_choice,qpart_count,log_form=false)
 	if folder != "NA"
 		cd("..")
 		cd("$folder")
 	end
 	if log_form
-	file = h5open("CF-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice-log.hdf5","r")
+	file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice-log.hdf5","r")
 	else
-		file = h5open("CF-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","r")
+		file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","r")
 	end
 	qpart_data = [read(file["metadata"],"qpart_position_$i") for i in 1:qpart_count]
 	full_qpart_data = [qpart_count,qpart_data]
@@ -95,16 +95,16 @@ function read_comb_CF_hdf5(folder,particles,n,p,rad_choice,qpart_count,log_form=
 	return full_data
 end
 
-function read_CF_hdf5(folder,mc_steps,particles,n,p,which,rad_count=1,qpart_count=0,log_form=false)
+function read_CF_hdf5(folder,vers,mc_steps,particles,n,p,which,rad_count=1,qpart_count=0,log_form=false)
 	if folder != "NA"
 		cd("..")
 		cd("$folder")
 	end
 	if qpart_count >= 1
 		if log_form
-			file = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpart_count-$rad_count-rad-log-$which.hdf5","r")
+			file = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpart_count-$rad_count-rad-log-$which.hdf5","r")
 		else
-			file = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpart_count-$rad_count-rad.hdf5","r")
+			file = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpart_count-$rad_count-rad-$which.hdf5","r")
 		end
 		qpart_data = [read(file["metadata"],"qpart_position_$i") for i in 1:qpart_count]
 		full_qpart_data = [qpart_count,qpart_data]
@@ -113,9 +113,9 @@ function read_CF_hdf5(folder,mc_steps,particles,n,p,which,rad_count=1,qpart_coun
 		full_data = [full_qpart_data,positions,wavefunc_data]
 	elseif qpart_count < 1
 		if log_form
-			file = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$which-log.hdf5","r")
+			file = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$which-log.hdf5","r")
 		else
-			file = h5open("CF-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$which.hdf5","r")
+			file = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$which.hdf5","r")
 		end
 		positions = read(file["all-data"],"pos_x") - im.*read(file["all-data"],"pos_y")
 		wavefunc_data = read(file["all-data"],"wavefunc")
@@ -130,11 +130,12 @@ end
 
 
 
-function find_CF_data(folder,particles,n,p,rad_choice,qpart_count,log_form)
+function find_CF_data(folder,vers,particles,n,p,rad_choice,qpart_count,log_form)
 	if folder != "NA"
 		cd("..")
 		cd("$folder")
 	end
+	low_vers = lowercase(vers)
 	file_list = readdir()
 	number = length(file_list)
 	all_data = []
@@ -144,6 +145,9 @@ function find_CF_data(folder,particles,n,p,rad_choice,qpart_count,log_form)
 		name = file_list[i]
 		separated = split(name,"-")
 		if length(separated) < 10
+			continue
+		end
+		if separated[1] != vers
 			continue
 		end
 		#parts_here = parse(Int,separated[6])
@@ -166,13 +170,13 @@ function find_CF_data(folder,particles,n,p,rad_choice,qpart_count,log_form)
 					qpartcount_here = parse(Int,separated[findall(i->i=="qpart",separated)[1] + 1])
 					if qpartcount_here == qpart_count
 						if separated[3] == "comb"
-							data_here = read_comb_CF_hdf5("NA",parts_here,n_here,p_here,radcount_here,qpartcount_here,log_form)
+							data_here = read_comb_CF_hdf5("NA",vers,parts_here,n_here,p_here,radcount_here,qpartcount_here,log_form)
 						else
 							which_here = parse(Int,split(separated[end],".")[1])
 							#mcsteps_here = parse(Int,separated[4])
 							mcsteps_here = parse(Int,separated[findall(i->i=="mc",separated)[1] + 1])
-							println(name)
-							data_here = read_CF_hdf5("NA",mcsteps_here,parts_here,n_here,p_here,which_here,radcount_here,qpartcount_here,log_form)
+							#println(name)
+							data_here = read_CF_hdf5("NA",vers,mcsteps_here,parts_here,n_here,p_here,which_here,radcount_here,qpartcount_here,log_form)
 						end
 						append!(all_data,[data_here])
 						append!(files_combined,[name])
@@ -185,16 +189,18 @@ function find_CF_data(folder,particles,n,p,rad_choice,qpart_count,log_form)
 	if length(files_combined) >= 2
 		found = true
 		#
-		#mkdir("indiv-comb-cf-data")
+		if !isdir("indiv-comb-$low_vers-data")
+			mkdir("indiv-comb-$low_vers-data")
+		end
 		for i in 1:length(files_combined)
 			file_name = files_combined[i]
-			cd("indiv-comb-cf-data")
+			cd("indiv-comb-$low_vers-data")
 			repeat = findall(na->na==file_name,readdir())
 			cd("..")
 			if length(repeat) > 0
 				println("Found overlap: $file_name")
 			else
-				mv("$file_name","indiv-comb-cf-data/$file_name",force=false)
+				mv("$file_name","indiv-comb-$low_vers-data/$file_name",force=false)
 			end
 		end
 		#
@@ -232,29 +238,38 @@ function combine_CF_data(all_data)
 	return qpart_data,full_pos_data,result_wavefunc_data
 end
 
-#=
-log_form = true
-particles = 16
-np_vals = [[1,1],[1,2],[2,1]]
-for k in 3:3
-	n,p = np_vals[k]
-	for j in 1:2
-		qpart_count = j
-		for i in 3:5
-			rad_choice = i
-			alldats = find_CF_data("cf-data",particles,n,p,rad_choice,qpart_count,log_form)
-			if alldats[2]
-				println("Found files to Combine: n=$n p=$p part=$particles rad=$rad_choice qparts=$qpart_count")
-				combined = combine_CF_data(alldats[1])
-				write_comb_CF_hdf5("cf-data",particles,n,p,combined,rad_choice,log_form)
-				xdats = read_comb_CF_hdf5("cf-data",particles,n,p,rad_choice,qpart_count,log_form)
-			else
-				println("No Combinations for n=$n p=$p part=$particles rad=$rad_choice qparts=$qpart_count")
+function main(args)
+	return args
+end
+main(ARGS)
+
+if ARGS[1]
+	println("Combining Stuff")
+	log_form_comb = false
+	particles_comb = 4
+	vers_comb = "RFA"
+	low_vers_comb = lowercase(vers_comb)
+	np_vals_comb = [[1,1],[1,2],[2,1]]
+	for k in 1:1
+		n_comb,p_comb = np_vals_comb[k]
+		for j in 1:1
+			qpart_count_comb = j
+			for i in 5:5
+				rad_choice_comb = i
+				alldats_comb = find_CF_data("$low_vers_comb-data",vers_comb,particles_comb,n_comb,p_comb,rad_choice_comb,qpart_count_comb,log_form_comb)
+				if alldats_comb[2]
+					println("Found files to Combine: $vers_comb n=$n_comb p=$p_comb part=$particles_comb rad=$rad_choice_comb qparts=$qpart_count_comb")
+					combined = combine_CF_data(alldats_comb[1])
+					write_comb_CF_hdf5("$low_vers_comb-data",vers_comb,particles_comb,n_comb,p_comb,combined,rad_choice_comb,log_form_comb)
+					xdats = read_comb_CF_hdf5("$low_vers_comb-data",vers_comb,particles_comb,n_comb,p_comb,rad_choice_comb,qpart_count_comb,log_form_comb)
+				else
+					println("No Combinations for n=$n_comb p=$p_comb part=$particles_comb rad=$rad_choice_comb qparts=$qpart_count_comb")
+				end
 			end
 		end
 	end
+
 end
-=#
 
 
 

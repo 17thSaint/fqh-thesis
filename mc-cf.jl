@@ -82,7 +82,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	low_vers = lowercase(vers)
 	running_config = start_rand_config(num_parts,n,p)
 	start_count = 0
-	output_file_count = 10
+	output_file_count = 100
 	if steps/output_file_count < 1
 		steps_per_file = 1
 	else
@@ -109,7 +109,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	wavefunc = 0.0+im*0.0
 	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = 0#100#Int(0.0001*steps)
+	therm_time = 100#Int(0.0001*steps)
 	collection_time = steps
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
@@ -153,13 +153,13 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		if i%(collection_time*0.01) == 0
 			println("Running $n $p:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
-		#=
+		#
 		if i%(samp_freq*steps_per_file) == 0
 			number += 1
 			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
 			write_pos_data_hdf5("$low_vers-data",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
-		=#
+		#
 	end
 	acc_rate = acc_count/(num_parts*steps)
 
@@ -185,7 +185,7 @@ function auto_correlation(energies, delta_t)
 end
 #
 particles = 10
-mc_steps = 100
+mc_steps = 10000
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
 which_np = 1#parse(Int64,ARGS[1])
@@ -199,44 +199,10 @@ k = 5#parse(Int64,ARGS[1])
 rad_choice = k
 x_rad = x_rads[rad_choice]
 qpart_choices = [[0,[0.0]],[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
-qpart_selected = 2#parse(Int64,ARGS[1])
+qpart_selected = parse(Int64,ARGS[1])
 qpart = qpart_choices[qpart_selected]
-#
 rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
-flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
-figure()
-hist2D(real.(flat_data),-imag.(flat_data),bins=100)
-title("$qpart")
-#
 
-#=
-data_count = 50
-xs = [-1.5*rm + i*(2*1.5*rm)/data_count for i in 1:data_count]
-coords_config = start_rand_config(particles,n,p)#10*(rand(particles) + im*rand(particles))
-#xs = [real(coords_config[2]) - 0.3*rm + 2*0.3*rm*i/data_count for i in 0:data_count]
-#ys = [-imag(coords_config[2]) - 0.3*rm + 2*0.3*rm*i/data_count for i in 0:data_count]
-rf_wavefunc = fill(0.0,(data_count+1,data_count+1))
-cf_wavefunc = fill(0.0,(data_count+1,data_count+1))
-for i in 1:length(xs)
-	println(i/length(xs))
-	local_x = xs[i]
-	for j in 1:length(xs)
-		local_y = xs[j]
-		coords_config[1] = local_x - im*local_y
-			
-		cf_wavefunc[i,j] = 2*real(get_wavefunc_fromlog(coords_config,n,p,qpart))
-		rf_wavefunc[i,j]  = 2*real(get_rf_wavefunc(coords_config,qpart,log_form))
-	end
-end
-figure()
-imshow(cf_wavefunc)#./maximum(cf_wavefunc))
-title("CF")
-colorbar()
-figure()
-imshow(rf_wavefunc)#./maximum(rf_wavefunc))
-title("RF")
-colorbar()
-=#
 
 
 
