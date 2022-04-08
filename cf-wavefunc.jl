@@ -1,5 +1,5 @@
 #import Pkg; Pkg.add("LinearAlgebra")
-using LinearAlgebra
+using LinearAlgebra,LaTeXStrings
 
 function start_rand_config(num_parts,n,p)
 	filling = n/(2*p*n+1)
@@ -506,27 +506,41 @@ function get_pascals_triangle(n::Int)
 	return t,folded
 end
 
-function get_rf_elem_proj(config,part,row)
-	jis = [get_Jis(config,part)]
-	append!(jis,[get_nth_deriv_Ji(config,part,i) for i in 1:row-1])
-	tri_coeffs = get_pascals_triangle(row)[2]
-	deriv_orders = [[row-i+1,i] for i in 1:length(tri_coeffs)]
-	#string_result = join([string(tri_coeffs[i],"J(",deriv_orders[i][1]-1,"')J(",deriv_orders[i][2]-1,"')") for i in 1:length(tri_coeffs)],"+")
-	indiv_terms = [tri_coeffs[i]*jis[deriv_orders[i][1]]*jis[deriv_orders[i][2]] for i in 1:length(tri_coeffs)]
-	result = 2*sum(indiv_terms)
+function get_rf_elem_proj(config,part,row,qpart=[0,[0]])
+	lstar = sqrt(2*1*1+1)
+	qpart_shift = qpart[1]
+	if row >= qpart_shift + 1
+		jis = [get_Jis(config,part)]
+		append!(jis,[get_nth_deriv_Ji(config,part,i) for i in 1:row-1])
+		tri_coeffs = get_pascals_triangle(row)[2]
+		deriv_orders = [[row-i+1,i] for i in 1:length(tri_coeffs)]
+		#string_result = join([string(tri_coeffs[i],"J(",deriv_orders[i][1]-1,"')J(",deriv_orders[i][2]-1,"')") for i in 1:length(tri_coeffs)],"+")
+		indiv_terms = [tri_coeffs[i]*jis[deriv_orders[i][1]]*jis[deriv_orders[i][2]] for i in 1:length(tri_coeffs)]
+		result = 2*sum(indiv_terms)
+	else
+		shift_part = conj(qpart[2][row])/(lstar^2)
+		ji_shifted = get_Jis(config.-shift_part,part)
+		front_term = config[part] + shift_part - conj(qpart[2][row])
+		result = front_term*exp(-shift_part/4)*ji_shifted^2
+		#string_result = latexstring("\$ exp()(z_$part - \\bar{\\eta_{$row}})J_{S$part}^2 \$")
+	end
 	return result
 end
 
-function get_rf_wavefunc(config)
+function get_rf_wavefunc(config,qpart=[0,[0]])
 	num_parts = length(config)
 	wavefunc = 1.0
 	full_matrix = fill(0.0+im*0.0,(num_parts,num_parts))
+	#string_matrix = fill("",(num_parts,num_parts))
 	for i in 1:num_parts
+		#
 		if i <= num_parts
 			wavefunc *= exp(-abs2(config[i])/4)
 		end
+		#
 		for j in 1:num_parts
 			full_matrix[i,j] = get_rf_elem_proj(config,j,i)
+			#string_matrix[i,j] = get_rf_elem_proj(config,j,i,qpart)
 		end
 	end
 	mat_det = det(full_matrix)

@@ -161,9 +161,9 @@ function auto_correlation(energies, delta_t)
     return (mean(autocorrelation_top)/autocorrelation_bottom)
 end
 #
-particles = 6
-mc_steps = 10000
-#log_form = true
+particles = 4
+mc_steps = 30000
+#log_form = false
 np_vals = [[1,1],[1,2],[2,1]]
 which_np = 1#parse(Int64,ARGS[1])
 n,p = np_vals[which_np]
@@ -171,44 +171,45 @@ fill_denom = 2*n*p + 1
 filling = n/(2*p*n+1)
 rm = sqrt(2*particles/filling)
 step_size = 0.4 + 0.175*rm
-#x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
-k = 4#parse(Int64,ARGS[1])
-#rad_choice = k
-#x_rad = x_rads[rad_choice]
-#qpart_choices = [[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
-#qpart_selected = parse(Int64,ARGS[1])
-#qpart = qpart_choices[qpart_selected]
-#rezz = main(n,p,mc_steps,particles,step_size,k)#,qpart,log_form)
-#flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
-#hist2D(real.(flat_data),-imag.(flat_data),bins=100)
+x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
+k = 5#parse(Int64,ARGS[1])
+rad_choice = k
+x_rad = x_rads[rad_choice]
+qpart_choices = [[0,[0.0]],[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
+qpart_selected = 2#parse(Int64,ARGS[1])
+qpart = qpart_choices[qpart_selected]
+rezz = main(n,p,mc_steps,particles,step_size,k,qpart)
+flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
+hist2D(real.(flat_data),-imag.(flat_data),bins=100)
 
-
-data_count = 31
-#xs = [-1.5*rm + i*(2*1.5*rm)/data_count for i in 1:data_count]
+#=
+data_count = 50
+xs = [-1.5*rm + i*(2*1.5*rm)/data_count for i in 1:data_count]
 coords_config = start_rand_config(particles,n,p)#10*(rand(particles) + im*rand(particles))
-xs = [real(coords_config[2]) - 0.3*rm + 2*0.3*rm*i/data_count for i in 0:data_count]
-ys = [-imag(coords_config[2]) - 0.3*rm + 2*0.3*rm*i/data_count for i in 0:data_count]
+#xs = [real(coords_config[2]) - 0.3*rm + 2*0.3*rm*i/data_count for i in 0:data_count]
+#ys = [-imag(coords_config[2]) - 0.3*rm + 2*0.3*rm*i/data_count for i in 0:data_count]
 rf_wavefunc = fill(0.0,(data_count+1,data_count+1))
 cf_wavefunc = fill(0.0,(data_count+1,data_count+1))
 for i in 1:length(xs)
 	println(i/length(xs))
 	local_x = xs[i]
 	for j in 1:length(xs)
-		local_y = ys[j]
+		local_y = xs[j]
 		coords_config[1] = local_x - im*local_y
 			
-		cf_wavefunc[i,j] = 2*real(get_wavefunc_fromlog(coords_config,n,p))
-		rf_wavefunc[i,j]  = log(abs2(get_rf_wavefunc(coords_config)))
+		cf_wavefunc[i,j] = 2*real(get_wavefunc_fromlog(coords_config,n,p,qpart))
+		rf_wavefunc[i,j]  = log(abs2(get_rf_wavefunc(coords_config,qpart)))
 	end
 end
 figure()
 imshow(cf_wavefunc./maximum(cf_wavefunc))
 title("CF")
+colorbar()
 figure()
 imshow(rf_wavefunc./maximum(rf_wavefunc))
 title("RF")
-
-
+colorbar()
+=#
 
 
 
