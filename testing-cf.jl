@@ -19,6 +19,18 @@ p = parse(Int64,ARGS[2])
 particles = parse(Int64,ARGS[3])
 
 
+coords3 = 10*(rand(particles) + im*rand(particles))
+coords4 = 10*(rand(particles) + im*rand(particles))
+coords1 = 10*(rand(particles) + im*rand(particles))
+coords2 = 10*(rand(particles) + im*rand(particles))
+comp_coords1 = rand(particles) + im*rand(particles)
+ep = 10^(-5)
+comp_coords2 = comp_coords1 .+ 0.0
+comp_coords2[1] += ep
+#
+# testing that when particles overlap Ji goes to zero
+coords1[1] = coords1[3] + eps()
+
 #=
 @testset "compare no p" begin
 	for i in 1:4
@@ -44,26 +56,10 @@ particles = parse(Int64,ARGS[3])
 end;
 =#
 if true
-@testset "classics" begin
+@testset "jis" begin
 
-	coords3 = 10*(rand(particles) + im*rand(particles))
-	coords4 = 10*(rand(particles) + im*rand(particles))
-	coords1 = rand(particles)
-	coords2 = rand(particles)
-	comp_coords1 = rand(particles) + im*rand(particles)
-	ep = 10^(-5)
-	comp_coords2 = comp_coords1 .+ 0.0
-	comp_coords2[1] += ep
-	#
-	# testing that when particles overlap Ji goes to zero
-	coords1[1] = coords1[3]
 	one_Ji_2 = p*get_Jis(coords1,2)
     	#one_Ji_2_nop = get_Jis_nop(coords1,1)
-	one_wavefunc = abs2(get_wavefunc(coords1,n,p))
-	#one_log_wavefunc = abs2(get_wavefunc_fromlog(coords1,n,p))
-	#@test !isapprox(one_wavefunc,0.0,atol=sqrt(eps()))
-	#@test !isapprox(one_log_wavefunc,0.0,atol=sqrt(eps()))
-	#@test !isapprox(one_Ji_2,0.0,atol=sqrt(eps()))
 	one_Ji_3 = p*get_Jis(coords1,3)
 	@test isapprox(one_Ji_3,0.0,atol=sqrt(eps()))
 
@@ -95,21 +91,42 @@ if true
 	log_jiprime = get_logJiprime(coords3,1,p)
 	@test isapprox(reg_jiprime,exp(log_jiprime),atol=10^(-3))
 	#
-	
+	# testing that ji2prime is the same reg vs log
+	reg_ji2prime = log(get_Ji2prime(coords3,1,p))
+	log_ji2prime = get_logJi2prime(coords3,1,p)
+	if imag(log_ji2prime) > 0 && imag(reg_ji2prime) > 0
+		modpi_ji2prime = (imag(log_ji2prime) - imag(reg_ji2prime))/pi
+	elseif imag(log_ji2prime) < 0 && imag(reg_ji2prime) < 0
+		modpi_ji2prime = (imag(log_ji2prime) - imag(reg_ji2prime))/pi
+	else
+		modpi_ji2prime = (abs(imag(log_ji2prime)) + abs(imag(reg_ji2prime)))/pi
+	end
+	rounded_ji2prime = round(modpi_ji2prime,digits=0)
+	@test isapprox(real(reg_ji2prime),real(log_ji2prime),atol=10^(-2))
+	@test isapprox(modpi_ji2prime,rounded_ji2prime,atol=10^(-1))
+end;
+end
+
+if true
+@testset "log-adds" begin
 	# testing log addition
 	rand1 = 10*(rand(Float64)+im*rand(Float64))
 	rand2 = 10*(rand(Float64)+im*rand(Float64))
 	logadd = get_log_add(rand1,rand2)
 	regadd = log(exp(rand1) + exp(rand2))
 	
-	rand_nest = 10*(rand(10)+im*rand(10))
-	logadd_nest = get_nested_logadd(1,rand_nest,rand_nest[1]+1-1)
+	rand_nest = 10*(rand(100)+im*rand(100))
+	logadd_nest = get_nested_logadd(length(rand_nest),rand_nest,rand_nest[end]+1-1)
 	regadd_nest = log(sum(exp.(rand_nest)))
 	
-	logs = [logadd,logadd_nest]
-	regs = [regadd,regadd_nest]
+	rand_big_nest = 10*(rand(500000)+im*rand(500000))
+	logadd_bignest = split_nested_logadd(rand_big_nest)
+	regadd_bignest = log(sum(exp.(rand_big_nest)))
 	
-	for i in 1:2
+	logs = [logadd,logadd_nest,logadd_bignest]
+	regs = [regadd,regadd_nest,regadd_bignest]
+	
+	for i in 1:3
 	log_here = logs[i]
 	reg_here = regs[i]
 	@test isapprox(real(log_here),real(reg_here),atol=10^(-2))
@@ -125,20 +142,11 @@ if true
 	@test isapprox(modpi,rounded,atol=10^(-1))
 	end
 	
-	# testing that ji2prime is the same reg vs log
-	reg_ji2prime = log(get_Ji2prime(coords3,1,p))
-	log_ji2prime = get_logJi2prime(coords3,1,p)
-	if imag(log_ji2prime) > 0 && imag(reg_ji2prime) > 0
-		modpi_ji2prime = (imag(log_ji2prime) - imag(reg_ji2prime))/pi
-	elseif imag(log_ji2prime) < 0 && imag(reg_ji2prime) < 0
-		modpi_ji2prime = (imag(log_ji2prime) - imag(reg_ji2prime))/pi
-	else
-		modpi_ji2prime = (abs(imag(log_ji2prime)) + abs(imag(reg_ji2prime)))/pi
-	end
-	rounded_ji2prime = round(modpi_ji2prime,digits=0)
-	@test isapprox(real(reg_ji2prime),real(log_ji2prime),atol=10^(-2))
-	@test isapprox(modpi_ji2prime,rounded_ji2prime,atol=10^(-1))
-	
+end;
+end
+
+if true
+@testset "wavefunc-CF" begin
 	# testing element of matrix same for reg and log
 	for i in 1:particles
 	for j in 1:particles
@@ -147,6 +155,11 @@ if true
 	@test isapprox(reg_element/exp(log_element),1.0,atol=10^(-2))
 	end
 	end
+
+	one_wavefunc = abs2(get_wavefunc(coords1,n,p))
+	one_log_wavefunc = 2*real(get_wavefunc_fromlog(coords1,n,p))
+	@test isapprox(Float64(one_wavefunc),0.0,atol=10^(-5))
+	@test one_log_wavefunc < 0.0
 	
 	# testing wavefunction is same reg and log
 	reg_wavefunc = get_wavefunc(coords3,n,p)
@@ -157,19 +170,61 @@ if true
 	#qpart_test = [2,100 .*start_rand_config(2,n,p)]
 	# testing wavefunction is same for reg and log with quasiparticles
 	qpart_test = [2,[rand(Float64)+im*rand(Float64),rand(Float64)+im*rand(Float64)]]
-	reg_wavefunc = get_wavefunc(coords_qpart_test,n,p,qpart_test)
-	log_wavefunc = get_wavefunc_fromlog(coords_qpart_test,n,p,qpart_test)
-	@test isapprox(reg_wavefunc,exp(log_wavefunc),atol=10^(-3))
+	reg_wavefunc_q = get_wavefunc(coords_qpart_test,n,p,qpart_test)
+	log_wavefunc_q = get_wavefunc_fromlog(coords_qpart_test,n,p,qpart_test)
+	#@test isapprox(reg_wavefunc_q,exp(log_wavefunc_q),atol=10^(-3))
 	
 	# testing particle overlapping quasiparticle is zero reg form
 	coords_qpart_test[1] == qpart_test[2][1] + eps()
 	qpart_overlap_wavefunc = get_wavefunc(coords_qpart_test,n,p,qpart_test)
-	@test isapprox(abs2(qpart_overlap_wavefunc),0.0,atol=10^(-4))
+	#@test isapprox(abs2(qpart_overlap_wavefunc),0.0,atol=10^(-4))
 	
 	# testing particle overlapping quasiparticle is zero log form
 	qpart_overlap_wavefunc_log = get_wavefunc_fromlog(coords_qpart_test,n,p,qpart_test)
 	@test isapprox(exp(2*real(qpart_overlap_wavefunc_log)),0.0,atol=10^(-5))
+end;
+end
+
+if true
+@testset "wavefunc-RFA" begin
+	rejs_mat = get_reject_sets_matrix(particles)
 	
+	# testing element of matrix same for reg and log
+	for i in 1:particles
+	for j in 1:particles
+	log_element_rf = get_rf_elem_proj(coords3,i,j,rejs_mat,[0,[0]],true)
+	reg_element_rf = get_rf_elem_proj(coords3,i,j,rejs_mat)
+	@test isapprox(reg_element_rf/exp(log_element_rf),1.0,atol=10^(-2))
+	end
+	end
+	#
+	one_rf_wavefunc = abs2(get_rf_wavefunc(100 .*coords1,rejs_mat))
+	one_rf_log_wavefunc = 2*real(get_rf_wavefunc(100 .*coords1,rejs_mat,[0,[0]],true))
+	#@test isapprox(one_rf_wavefunc,0.0,atol=10^(-5))
+	@test one_rf_log_wavefunc < 0.0
+	
+	# testing wavefunction is same reg and log
+	reg_rf_wavefunc = get_rf_wavefunc(coords3,rejs_mat)
+	log_rf_wavefunc = get_rf_wavefunc(coords3,rejs_mat,[0,[0]],true)
+	@test isapprox(reg_rf_wavefunc/exp(log_rf_wavefunc),1.0,atol=10^(-3))
+	#
+	coords_qpart_test_rf = 100 .*(rand(particles) + im*rand(particles))
+	#qpart_test = [2,100 .*start_rand_config(2,n,p)]
+	# testing wavefunction is same for reg and log with quasiparticles
+	qpart_test_rf = [2,[rand(Float64)+im*rand(Float64),rand(Float64)+im*rand(Float64)]]
+	reg_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,qpart_test_rf)
+	log_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,qpart_test_rf,true)
+	@test isapprox(reg_rf_wavefunc_q,exp(log_rf_wavefunc_q),atol=10^(-3))
+	
+	# testing particle overlapping quasiparticle is zero reg form
+	coords_qpart_test_rf[1] == qpart_test_rf[2][1] + eps()
+	qpart_overlap_wavefunc_rf = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,qpart_test_rf)
+	@test isapprox(abs2(qpart_overlap_wavefunc_rf),0.0,atol=10^(-4))
+	
+	# testing particle overlapping quasiparticle is zero log form
+	qpart_overlap_wavefunc_log_rf = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,qpart_test_rf,true)
+	@test isapprox(exp(2*real(qpart_overlap_wavefunc_log_rf)),0.0,atol=10^(-5))
+	#
 end;
 end
 
@@ -177,20 +232,23 @@ if true
 @testset "ji-derivs" begin
 	local_config = 10 .*(rand(particles) + im.*rand(particles))
 	part = 1
+	rejs_mat = get_reject_sets_matrix(particles)
+	rejs_column_order1 = rejs_mat[:,1]
+	rejs_column_order2 = rejs_mat[:,2]
 	
-	nest_deriv_1 = get_nth_deriv_Ji(local_config,part,1)
+	nest_deriv_1 = get_nth_deriv_Ji(local_config,part,rejs_column_order1)
 	og_deriv_1 = get_Jiprime(local_config,part,1)
 	@test isapprox(og_deriv_1,nest_deriv_1,atol=sqrt(eps()))
 	
-	nest_deriv_2 = get_nth_deriv_Ji(local_config,part,2)
+	nest_deriv_2 = get_nth_deriv_Ji(local_config,part,rejs_column_order2)
 	og_deriv_2 = get_Ji2prime(local_config,part,1)
 	@test isapprox(og_deriv_2,nest_deriv_2,atol=sqrt(eps()))
 	
-	nest_log_deriv_1 = get_nth_deriv_Ji(local_config,part,1,true)
+	nest_log_deriv_1 = get_nth_deriv_Ji(local_config,part,rejs_column_order1,true)
 	og_log_deriv_1 = get_logJiprime(local_config,part,1)
 	@test isapprox(og_deriv_1,nest_deriv_1,atol=sqrt(eps()))
 	
-	nest_log_deriv_2 = get_nth_deriv_Ji(local_config,part,2,true)
+	nest_log_deriv_2 = get_nth_deriv_Ji(local_config,part,rejs_column_order2,true)
 	og_log_deriv_2 = get_logJi2prime(local_config,part,1)
 	@test isapprox(og_log_deriv_2,nest_log_deriv_2,atol=sqrt(eps()))
 end;
