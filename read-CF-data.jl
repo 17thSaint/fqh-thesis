@@ -175,7 +175,7 @@ function find_CF_data(folder,vers,particles,n,p,rad_choice,qpart_count,log_form)
 							which_here = parse(Int,split(separated[end],".")[1])
 							#mcsteps_here = parse(Int,separated[4])
 							mcsteps_here = parse(Int,separated[findall(i->i=="mc",separated)[1] + 1])
-							#println(name)
+							println(name)
 							data_here = read_CF_hdf5("NA",vers,mcsteps_here,parts_here,n_here,p_here,which_here,radcount_here,qpartcount_here,log_form)
 						end
 						append!(all_data,[data_here])
@@ -190,6 +190,7 @@ function find_CF_data(folder,vers,particles,n,p,rad_choice,qpart_count,log_form)
 		found = true
 		#
 		if !isdir("indiv-comb-$low_vers-data")
+			println("No Existing Indiv $vers Folder")
 			mkdir("indiv-comb-$low_vers-data")
 		end
 		for i in 1:length(files_combined)
@@ -239,20 +240,24 @@ function combine_CF_data(all_data)
 end
 
 function main(args)
-	return args
+	if typeof(args) == String
+		args == "true" ? true : false
+	else
+		return args
+	end
 end
-main(ARGS)
+make_new = main(ARGS[1])
 
-if ARGS[1]
+if make_new
 	println("Combining Stuff")
-	log_form_comb = false
-	particles_comb = 4
+	log_form_comb = true
+	particles_comb = 10
 	vers_comb = "RFA"
 	low_vers_comb = lowercase(vers_comb)
 	np_vals_comb = [[1,1],[1,2],[2,1]]
 	for k in 1:1
 		n_comb,p_comb = np_vals_comb[k]
-		for j in 1:1
+		for j in 1:2
 			qpart_count_comb = j
 			for i in 5:5
 				rad_choice_comb = i

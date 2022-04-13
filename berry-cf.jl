@@ -1,10 +1,10 @@
 using Statistics,PyPlot
-
+ARGS = false
 include("read-CF-data.jl")
 include("cf-wavefunc.jl")
 include("energy-time-correlation.jl")
 
-function get_expval(n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=false)
+function get_expval(vers,rejects_matrix,all_pascal,all_derivs,n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=false)
 	qpart_data,pos_data_og,wavefunc_data = hdf5_data
 	rm = sqrt(2*size(pos_data_og)[1]*(2*p*n+1)/n)
 	len = length(wavefunc_data)
@@ -28,21 +28,21 @@ function get_expval(n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=false)
 
 	for i in 1:number_slices # averaged over a bunch of time slices separated by sampling frequency
 			# sampling frequency found from time autocorrelation: ~100
-		if i%(number_slices*0.1) == 0
+		if i%(number_slices*0.01) == 0
 		    println("Running: ",100*i/number_slices,"%")
 	    	end
 		local_config = pos_data[:,i]
-		#dist_to_qpart_origin = abs.(local_config)# .- single_qpart_location)
-		#dist_to_qpart_two = abs.(local_config .- single_qpart_location)
+		dist_to_qpart_origin = abs.(local_config)# .- single_qpart_location)
+		dist_to_qpart_two = abs.(local_config .- single_qpart_location)
 		#dist_to_qpart_shifted = abs.(local_config .- qpart_shifted) 
-		#too_close_origin = findall(x->x<=0.1,dist_to_qpart_origin)
-		#too_close_two = findall(x->x<=0.001*rm,dist_to_qpart_two)
+		too_close_origin = findall(x->x<=0.001*rm,dist_to_qpart_origin)
+		too_close_two = findall(x->x<=0.001*rm,dist_to_qpart_two)
 		#count_origin += length(too_close_origin)
 		#count_two += length(too_close_two)
-		#if length(too_close_two) > 0 #|| length(too_close_origin) > 0
-		#	println("Too Close: $dist_to_qpart_two")
-		#	continue
-		#end
+		if length(too_close_two) > 0 || length(too_close_origin) > 0
+			println("Too Close: $dist_to_qpart_two")
+			continue
+		end
 		if log_form
 			#=
 			new_wavefunc = get_wavefunc_fromlog(local_config,n,p,qpart_data)
@@ -51,12 +51,20 @@ function get_expval(n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=false)
 			calced_vals[i] = exp(real(ratio_wavefunc))*sin(imag(ratio_wavefunc))/dtheta
 			#println(calced_vals[i])
 			=#
-			new_wavefunc = get_wavefunc_fromlog(local_config,n,p,qpart_data)
+			if vers == "CF"
+				new_wavefunc = get_wavefunc_fromlog(local_config,n,p,qpart_data)
+			elseif vers == "RFA"
+				new_wavefunc = get_rf_wavefunc(local_config,rejects_matrix,all_pascal,all_derivs,qpart_data,log_form)
+			end
 			ratio_wavefunc = exp(new_wavefunc - wavefunc_data[i])
 			#calced_vals[i] = imag(ratio_wavefunc)/dtheta
 			append!(calced_vals,[imag(ratio_wavefunc)/dtheta])
 		else
-			new_wavefunc = get_wavefunc(local_config,n,p,qpart_data)
+			if vers == "CF"
+				new_wavefunc = get_wavefunc(local_config,n,p,qpart_data)
+			elseif vers == "RFA"
+				new_wavefunc = new_wavefunc = get_rf_wavefunc(local_config,rejects_matrix,all_pascal,all_derivs,qpart_data,log_form)
+			end
 			ratio_wavefunc = new_wavefunc / wavefunc_data[i]
 			#calced_vals[i] = imag(ratio_wavefunc)/dtheta
 			append!(calced_vals,[imag(ratio_wavefunc)/dtheta])
@@ -81,9 +89,18 @@ function get_expval(n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=false)
 end
 
 
-particles = 16
+particles = 10
+rej_mat = get_reject_sets_matrix(particles)
+println("Got Rej Matrix")
+full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
+println("Got Pasc Triangle")
+full_deriv_ords = get_deriv_orders_matrix(particles)
+println("Got Deriv Orders")
+flux_type = "RFA"
+low_fluxtype = "rfa"
 #mc_steps = 1000
-top = 5
+which_np_getberry = 1
+top = 10
 #
 rads_1q = fill(0.0,(top,3))
 berries_1q = fill(0.0,(top,3))
@@ -95,76 +112,75 @@ np_vals = [[1,1],[1,2],[2,1]]
 origin_counts = fill(0.0,(top,3))
 two_counts = fill(0.0,(top,3))
 log_form = true
-for j in 2:2
-        n,p = np_vals[j]
-        for i in 3:5
+n_berry,p_berry = np_vals[which_np_getberry]
+        for i in 5:5
 		#
-		radii_data_1q = read_comb_CF_hdf5("cf-data",particles,n,p,i,1,true)
-		corr_length_1q = 1#get_autocorr_length(radii_data_1q[3],1)[1]
+		radii_data_1q = read_comb_CF_hdf5("$low_fluxtype-data",flux_type,particles,n_berry,p_berry,i,1,true)
+		corr_length_1q = 10#get_autocorr_length(radii_data_1q[3],1)[1]
 		println("Corr Length: $corr_length_1q")
-		rads_1q[i,j] = real(radii_data_1q[1][2][1])
-		berry_calc_1q = get_expval(n,p,radii_data_1q,1,-0.001,corr_length_1q,log_form)
-		berries_1q[i,j] = berry_calc_1q[1]
-		errors_1q[i,j] = berry_calc_1q[2]
+		rads_1q[i,which_np_getberry] = real(radii_data_1q[1][2][1])
+		berry_calc_1q = get_expval(flux_type,rej_mat,full_pasc_tri,full_deriv_ords,n_berry,p_berry,radii_data_1q,1,-0.001,corr_length_1q,log_form)
+		berries_1q[i,which_np_getberry] = berry_calc_1q[1]
+		errors_1q[i,which_np_getberry] = berry_calc_1q[2]
 		#two_counts[i,j] = berry_calc_1q[3]
 		#
-		radii_data_2q = read_comb_CF_hdf5("cf-data",particles,n,p,i,2,true)
+		radii_data_2q = read_comb_CF_hdf5("$low_fluxtype-data",flux_type,particles,n_berry,p_berry,i,2,true)
 		#radii_data_2q = read_CF_hdf5("cf-data",100000,particles,n,p,1,i,2,log_form)
-		corr_length_2q = 1#get_autocorr_length(radii_data_2q[3],1)[1]
+		corr_length_2q = 10#get_autocorr_length(radii_data_2q[3],1)[1]
 		println("Corr Length: $corr_length_2q")
-		rads_2q[i,j] = real(radii_data_2q[1][2][1])
-		berry_calc_2q = get_expval(n,p,radii_data_2q,1,-0.001,corr_length_2q,log_form)
-		berries_2q[i,j] = berry_calc_2q[1]
-		errors_2q[i,j] = berry_calc_2q[2]
+		rads_2q[i,which_np_getberry] = real(radii_data_2q[1][2][1])
+		berry_calc_2q = get_expval(flux_type,rej_mat,full_pasc_tri,full_deriv_ords,n_berry,p_berry,radii_data_2q,1,-0.001,corr_length_2q,log_form)
+		berries_2q[i,which_np_getberry] = berry_calc_2q[1]
+		errors_2q[i,which_np_getberry] = berry_calc_2q[2]
 		#origin_counts[i,j] = berry_calc_2q[3]
 		#two_counts[i,j] = berry_calc_2q[4]
 		#
         end
-end
 #
 
 # 16 parts 2 qparts 1000 mcs 1/3 rad 7 ver 1, has particle stuck near origin qpart causing bad berry calc
 # rad 2 ver 2 has first particle stuck too, same rad 5 and rad 9
 
-which = 2
-n,p = np_vals[which]
+which_nps_plotting = 1
+n_plot,p_plot = np_vals[which_nps_plotting]
 th_coeff_vals = [2,1,1]
-th_coeff = th_coeff_vals[which]
-fill_denom = 2*p*n + 1
-rm = sqrt(2*particles*fill_denom/n)
+th_coeff = th_coeff_vals[which_nps_plotting]
+fill_denom = 2*p_plot*n_plot + 1
+rm = sqrt(2*particles*fill_denom/n_plot)
 
-#plot(rads_2q[:,which],origin_counts[:,which],"-p",label="OG")
-#plot(rads_2q[:,which],two_counts[:,which],"-p",label="Two")
+#plot(rads_2q[:,which_nps_plotting],origin_counts[:,which_nps_plotting],"-p",label="OG")
+#plot(rads_2q[:,which_nps_plotting],two_counts[:,which_nps_plotting],"-p",label="Two")
 #legend()
 
-#= direct compare berry phase
-theory_here_1q = rads_1q[:,which].*rads_1q[:,which]./(th_coeff*(2*p*n+1))
+# direct compare berry phase
+theory_here_1q = rads_1q[:,which_nps_plotting].*rads_1q[:,which_nps_plotting]./(th_coeff*(2*p_plot*n_plot+1))
 #
-#theory_here_2q_m = rads_2q[:,which].*rads_2q[:,which]./(th_coeff*(2*p*n+1)) - [2*p/(2*p*n + 1) for i in 1:length(rads_2q[:,which])]
-#theory_here_2q_p = rads_2q[:,which].*rads_2q[:,which]./(th_coeff*(2*p*n+1)) + [2*p/(2*p*n + 1) for i in 1:length(rads_2q[:,which])]
-plot(rads_1q[:,which]./rm,theory_here_1q,"-k",label="TH")# $n / $fill_denom")
-#scatter(rads_2q[:,which],theory_here_2q_m,c="r",label="~TH 2Q M")# $n / $fill_denom")
-#scatter(rads_2q[:,which],theory_here_2q_p,c="g",label="~TH 2Q P")# $n / $fill_denom")
-errorbar(rads_1q[:,which]./rm,-berries_1q[:,which],yerr=[errors_1q[:,which],errors_1q[:,which]],fmt="-o",c="r",label="1Q")# $n / $fill_denom")
-errorbar(rads_2q[:,which]./rm,-berries_2q[:,which],yerr=[errors_2q[:,which],errors_2q[:,which]],fmt="-o",label="2Q")# $n / $fill_denom")
+#theory_here_2q_m = rads_2q[:,which_nps_plotting].*rads_2q[:,which_nps_plotting]./(th_coeff*(2*p*n+1)) - [2*p/(2*p*n + 1) for i in 1:length(rads_2q[:,which_nps_plotting])]
+#theory_here_2q_p = rads_2q[:,which_nps_plotting].*rads_2q[:,which_nps_plotting]./(th_coeff*(2*p*n+1)) + [2*p/(2*p*n + 1) for i in 1:length(rads_2q[:,which_nps_plotting])]
+figure()
+plot(rads_1q[:,which_nps_plotting]./rm,theory_here_1q,"-k",label="TH")# $n / $fill_denom")
+#scatter(rads_2q[:,which_nps_plotting],theory_here_2q_m,c="r",label="~TH 2Q M")# $n / $fill_denom")
+#scatter(rads_2q[:,which_nps_plotting],theory_here_2q_p,c="g",label="~TH 2Q P")# $n / $fill_denom")
+errorbar(rads_1q[:,which_nps_plotting]./rm,-berries_1q[:,which_nps_plotting],yerr=[errors_1q[:,which_nps_plotting],errors_1q[:,which_nps_plotting]],fmt="-o",c="r",label="1Q")# $n / $fill_denom")
+errorbar(rads_2q[:,which_nps_plotting]./rm,-berries_2q[:,which_nps_plotting],yerr=[errors_2q[:,which_nps_plotting],errors_2q[:,which_nps_plotting]],fmt="-o",label="2Q")# $n / $fill_denom")
 xlabel("Quasiparticle Radius")
 ylabel("Berry Phase")
-title(latexstring("Berry Phase for \$ \\nu = $n/$fill_denom \$, N=$particles"))
+title(latexstring("Berry Phase for \$ \\nu = $n_plot/$fill_denom \$, N=$particles"))
 legend()
-=#
-j = 1
+#
 # compare shift in berry phase with 2QP
 #diff = -berries_1q[:,j]+berries_2q[:,j]
-diff = -berries_1q[:,j]+berries_2q[:,j]
+diff_vals = berries_1q[:,j]-berries_2q[:,j]
 #diff_errors = sqrt.(errors_1q[:,j].^2 + errors_2q[:,j].^2)
 diff_errors = sqrt.(errors_2q[:,j].^2)
-theory_diff = [2*p/(th_coeff*(2*p*n + 1)),-2*p/(th_coeff*(2*p*n + 1))]
-errorbar(rads_2q[:,j],diff,yerr=[diff_errors,diff_errors],fmt="-o")
+theory_diff = [2*p_plot/(th_coeff*(2*p_plot*n_plot + 1)),-2*p_plot/(th_coeff*(2*p_plot*n_plot + 1))]
+figure()
+errorbar(rads_2q[:,j],diff_vals,yerr=[diff_errors,diff_errors],fmt="-o")
 plot(rads_2q[:,j],[theory_diff[1] for i in 1:length(rads_2q[:,j])],label="TH P")
 plot(rads_2q[:,j],[theory_diff[2] for i in 1:length(rads_2q[:,j])],label="TH M")
 legend()
 xlabel("Quasiparticle Radius")
-title(latexstring("Shift from Enclosed CFQP at \$ \\nu=$n/$fill_denom \$"))
+title(latexstring("Shift from Enclosed CFQP at \$ \\nu=$n_plot/$fill_denom \$"))
 #
 
 

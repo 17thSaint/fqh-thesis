@@ -188,41 +188,43 @@ end
 if true
 @testset "wavefunc-RFA" begin
 	rejs_mat = get_reject_sets_matrix(particles)
+	full_derivs = get_deriv_orders_matrix(particles)
 	
+	full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
 	# testing element of matrix same for reg and log
-	for i in 1:particles
 	for j in 1:particles
-	log_element_rf = get_rf_elem_proj(coords3,i,j,rejs_mat,[0,[0]],true)
-	reg_element_rf = get_rf_elem_proj(coords3,i,j,rejs_mat)
+	for i in 1:particles
+	log_element_rf = get_rf_elem_proj(coords3,i,j,rejs_mat,full_pasc_tri[j],full_derivs[j],[0,[0]],true)
+	reg_element_rf = get_rf_elem_proj(coords3,i,j,rejs_mat,full_pasc_tri[j],full_derivs[j])
 	@test isapprox(reg_element_rf/exp(log_element_rf),1.0,atol=10^(-2))
 	end
 	end
 	#
-	one_rf_wavefunc = abs2(get_rf_wavefunc(100 .*coords1,rejs_mat))
-	one_rf_log_wavefunc = 2*real(get_rf_wavefunc(100 .*coords1,rejs_mat,[0,[0]],true))
+	one_rf_wavefunc = abs2(get_rf_wavefunc(100 .*coords1,rejs_mat,full_pasc_tri,full_derivs))
+	one_rf_log_wavefunc = 2*real(get_rf_wavefunc(100 .*coords1,rejs_mat,full_pasc_tri,full_derivs,[0,[0]],true))
 	#@test isapprox(one_rf_wavefunc,0.0,atol=10^(-5))
 	@test one_rf_log_wavefunc < 0.0
 	
 	# testing wavefunction is same reg and log
-	reg_rf_wavefunc = get_rf_wavefunc(coords3,rejs_mat)
-	log_rf_wavefunc = get_rf_wavefunc(coords3,rejs_mat,[0,[0]],true)
+	reg_rf_wavefunc = get_rf_wavefunc(coords3,rejs_mat,full_pasc_tri,full_derivs)
+	log_rf_wavefunc = get_rf_wavefunc(coords3,rejs_mat,full_pasc_tri,full_derivs,[0,[0]],true)
 	@test isapprox(reg_rf_wavefunc/exp(log_rf_wavefunc),1.0,atol=10^(-3))
 	#
 	coords_qpart_test_rf = 100 .*(rand(particles) + im*rand(particles))
 	#qpart_test = [2,100 .*start_rand_config(2,n,p)]
 	# testing wavefunction is same for reg and log with quasiparticles
 	qpart_test_rf = [2,[rand(Float64)+im*rand(Float64),rand(Float64)+im*rand(Float64)]]
-	reg_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,qpart_test_rf)
-	log_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,qpart_test_rf,true)
+	reg_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,full_pasc_tri,full_derivs,qpart_test_rf)
+	log_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,full_pasc_tri,full_derivs,qpart_test_rf,true)
 	@test isapprox(reg_rf_wavefunc_q,exp(log_rf_wavefunc_q),atol=10^(-3))
 	
 	# testing particle overlapping quasiparticle is zero reg form
 	coords_qpart_test_rf[1] == qpart_test_rf[2][1] + eps()
-	qpart_overlap_wavefunc_rf = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,qpart_test_rf)
+	qpart_overlap_wavefunc_rf = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,full_pasc_tri,full_derivs,qpart_test_rf)
 	@test isapprox(abs2(qpart_overlap_wavefunc_rf),0.0,atol=10^(-4))
 	
 	# testing particle overlapping quasiparticle is zero log form
-	qpart_overlap_wavefunc_log_rf = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,qpart_test_rf,true)
+	qpart_overlap_wavefunc_log_rf = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,full_pasc_tri,full_derivs,qpart_test_rf,true)
 	@test isapprox(exp(2*real(qpart_overlap_wavefunc_log_rf)),0.0,atol=10^(-5))
 	#
 end;
