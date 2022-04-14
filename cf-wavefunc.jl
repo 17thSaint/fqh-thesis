@@ -33,13 +33,23 @@ function get_qpart_wf_exp(config,qpart,which_qpart,part,n,exp_check=true)
 	return result
 end
 
-function get_Jis(config::Vector{ComplexF64},part::Int,rejected_parts=[])
+function get_Jis_rej(config::Vector{ComplexF64},part::Int,rejected_parts=[])
 	ji = 1.0
 	num_parts = length(config)
 	for i in 1:num_parts
 		if i == part || i in rejected_parts
 			continue
 		end
+		dist_btw = config[part]-config[i]
+		ji *= dist_btw
+	end
+	return Complex(ji)
+end
+
+function get_Jis(config::Vector{ComplexF64},part::Int,acc_parts=[])
+	ji = 1.0
+	num_parts = length(config)
+	for i in acc_parts
 		dist_btw = config[part]-config[i]
 		ji *= dist_btw
 	end
@@ -163,13 +173,10 @@ function get_wavefunc(config,n,p,qpart=[0,[0]])
 	return wavefunc
 end
 
-function get_logJi(config,part,rejected_parts=[])
+function get_logJi(config::Vector{ComplexF64},part::Int64,acc_parts=[])
 	logji::ComplexF64 = 0.0
 	num_parts::Int = length(config)
-	for i in 1:num_parts
-		if i == part || i in rejected_parts
-			continue
-		end
+	for i in acc_parts
 		dist_btw::ComplexF64 = config[part]-config[i]
 		logji += log(Complex(dist_btw))#*p
 	end
