@@ -49,6 +49,9 @@ end
 function get_Jis(config::Vector{ComplexF64},part::Int,acc_parts=[])
 	ji = 1.0
 	num_parts = length(config)
+	if length(acc_parts) == 0
+		acc_parts = deleteat!([i for i in 1:num_parts],[i for i in 1:num_parts] .== part)
+	end
 	for i in acc_parts
 		dist_btw = config[part]-config[i]
 		ji *= dist_btw
@@ -176,6 +179,9 @@ end
 function get_logJi(config::Vector{ComplexF64},part::Int64,acc_parts=[])
 	logji::ComplexF64 = 0.0
 	num_parts::Int = length(config)
+	if length(acc_parts) == 0
+		acc_parts = deleteat!([i for i in 1:num_parts],[i for i in 1:num_parts] .== part)
+	end
 	for i in acc_parts
 		dist_btw::ComplexF64 = config[part]-config[i]
 		logji += log(Complex(dist_btw))#*p
@@ -439,7 +445,7 @@ function prob_wavefunc_laughlin(complex_config, m)
 	return full
 end
 
-function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any}},all_ji_reject_sets::Vector)
+function nested_loop_rej(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any}},all_ji_reject_sets::Vector)
 	#sum_parts = [0 for i in 1:order-1]
 	order::Int = length(keys(allowed_vals_dict))
 	parts_count::Int = length(allowed_vals_dict["s1"]) + 1
@@ -447,15 +453,7 @@ function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any
 		for i in 1:length(allowed_vals_dict["s$order"])
 			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
 			ji_rejects = deleteat!([j for j in 1:parts_count],ji_allowed_vals)
-			#=
-			sum_parts = [0 for k in 1:order]
-			for k in 1:order-1
-				next = k+1
-				sum_parts[k] = deleteat!(allowed_vals_dict["s$k"].+(1-1),findall(x->x in allowed_vals_dict["s$next"],allowed_vals_dict["s$k"]))[1]
-			end
-			sum_parts[end] = deleteat!(allowed_vals_dict["s$order"].+(1-1),findall(x->x in ji_allowed_vals,allowed_vals_dict["s$order"]))[1]
-			println(i,", Sum Parts: $sum_parts","Jis: ",ji_allowed_vals)
-			=#
+		
 			append!(all_ji_reject_sets,[ji_rejects])
 		end
 		
@@ -466,7 +464,40 @@ function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any
 	for i in 1:length(allowed_vals_dict["s$loop_level"])
 		sum_part = allowed_vals_dict["s$loop_level"][i]
 		allowed_vals_dict["s$next_level"] = deleteat!(allowed_vals_dict["s$loop_level"].+(1-1),i)
-		nested_loop(loop_level + 1,allowed_vals_dict,all_ji_reject_sets)
+		nested_loop_rej(loop_level + 1,allowed_vals_dict,all_ji_reject_sets)
+	end
+	
+end
+
+function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any}},all_ji_acc_sets::Vector)
+	#sum_parts = [0 for i in 1:order-1]
+	order::Int = length(keys(allowed_vals_dict))
+	parts_count::Int = length(allowed_vals_dict["s1"]) + 1
+	if loop_level == order
+		for i in 1:length(allowed_vals_dict["s$order"])
+			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
+			
+			#=
+			sum_parts = [0 for k in 1:order]
+			for k in 1:order-1
+				next = k+1
+				sum_parts[k] = deleteat!(allowed_vals_dict["s$k"].+(1-1),findall(x->x in allowed_vals_dict["s$next"],allowed_vals_dict["s$k"]))[1]
+			end
+			sum_parts[end] = deleteat!(allowed_vals_dict["s$order"].+(1-1),findall(x->x in ji_allowed_vals,allowed_vals_dict["s$order"]))[1]
+			println(i,", Sum Parts: $sum_parts","Jis: ",ji_allowed_vals)
+			=#
+			
+			append!(all_ji_acc_sets,[ji_allowed_vals])
+		end
+		
+		return 
+	
+	end
+	next_level::Int = loop_level + 1
+	for i in 1:length(allowed_vals_dict["s$loop_level"])
+		sum_part = allowed_vals_dict["s$loop_level"][i]
+		allowed_vals_dict["s$next_level"] = deleteat!(allowed_vals_dict["s$loop_level"].+(1-1),i)
+		nested_loop(loop_level + 1,allowed_vals_dict,all_ji_acc_sets)
 	end
 	
 end
@@ -476,7 +507,7 @@ function get_all_reject_sets(order::Int64,part::Int64,parts_count::Int64)
 	starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
 	
 	all_ji_reject_sets = []
-	nested_loop(1,starting_allowed_vals_dict,all_ji_reject_sets)
+	nested_loop_rej(1,starting_allowed_vals_dict,all_ji_reject_sets)
 	return all_ji_reject_sets
 end
 
@@ -489,6 +520,27 @@ function get_reject_sets_matrix(num_parts::Int64)
 	end
 	
 	return reject_sets_matrix
+end
+
+function get_all_acc_sets(order::Int64,part::Int64,parts_count::Int64)
+	starting_allowed_vals_dict::Dict{String,Vector{Any}} = Dict([("s$i",[]) for i in 1:order])
+	starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
+	
+	all_ji_acc_sets = []
+	nested_loop(1,starting_allowed_vals_dict,all_ji_acc_sets)
+	return all_ji_acc_sets
+end
+
+
+function get_allowed_sets_matrix(num_parts::Int64)
+	allowed_sets_matrix = Matrix{Vector{Vector{Int}}}(undef,num_parts,num_parts-1)
+	for which_part in 1:num_parts
+		for which_order in 1:num_parts-1
+			allowed_sets_matrix[which_part,which_order] = get_all_acc_sets(which_order,which_part,num_parts)
+		end
+	end
+	
+	return allowed_sets_matrix
 end
 
 function get_nested_logadd(loop_level::Int64,all_vals::Vector{ComplexF64},result::ComplexF64)
@@ -515,15 +567,15 @@ function split_nested_logadd(all_vals::Vector{ComplexF64})
 	return Complex(result_allnests)
 end
 
-function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,reject_sets_column::Vector{Vector{Vector{Int64}}},log_form=false)
+function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,acc_sets_column::Vector{Vector{Vector{Int64}}},log_form=false)
 	parts_count::Int64 = length(config)
 	result::ComplexF64 = 0.0+im*0.0
-	all_rej_sets::Vector{Vector{Int64}} = reject_sets_column[part]
+	all_acc_sets::Vector{Vector{Int64}} = acc_sets_column[part]
 	if !log_form
-		all_jis::Vector{ComplexF64} = [get_Jis(config,part,all_rej_sets[i]) for i in 1:length(all_rej_sets)]
+		all_jis::Vector{ComplexF64} = [get_Jis(config,part,all_acc_sets[i]) for i in 1:length(all_acc_sets)]
 		result = sum(all_jis)
 	else
-		all_jis = [get_logJi(config,part,all_rej_sets[i]) for i in 1:length(all_rej_sets)]
+		all_jis = [get_logJi(config,part,all_acc_sets[i]) for i in 1:length(all_acc_sets)]
 		#println(length(all_jis))
 		if any(isinf.(all_jis))
 			result = -Inf
@@ -550,13 +602,13 @@ function get_pascals_triangle(n::Int64)
 	return t,folded
 end
 
-function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,reject_sets_matrix::Matrix{Vector{Vector{Int64}}},pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
+function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_sets_matrix::Matrix{Vector{Vector{Int64}}},pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
 	lstar::Float64 = sqrt(2*1*1+1)
 	qpart_shift::Int64 = qpart[1]
 	if !log_form
 		if row >= qpart_shift + 1
 			jis::Vector{ComplexF64} = [get_Jis(config,part)]
-			append!(jis,[get_nth_deriv_Ji(config,part,reject_sets_matrix[:,i]) for i in 1:row-1])
+			append!(jis,[get_nth_deriv_Ji(config,part,acc_sets_matrix[:,i]) for i in 1:row-1])
 			#string_result = join([string(tri_coeffs[i],"J(",deriv_orders[i][1]-1,"')J(",deriv_orders[i][2]-1,"')") for i in 1:length(tri_coeffs)],"+")
 			indiv_terms::Vector{ComplexF64} = [pascals_row[i]*jis[deriv_orders[i][1]]*jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]
 			result::ComplexF64 = 2*sum(indiv_terms)
@@ -570,7 +622,7 @@ function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,reje
 	else
 		if row >= qpart_shift + 1
 			jis = [get_logJi(config,part)]
-			append!(jis,[get_nth_deriv_Ji(config,part,reject_sets_matrix[:,i],log_form) for i in 1:row-1])
+			append!(jis,[get_nth_deriv_Ji(config,part,acc_sets_matrix[:,i],log_form) for i in 1:row-1])
 			indiv_terms = [log(pascals_row[i]) + jis[deriv_orders[i][1]] + jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]  # get rid of for loop here
 			if any(isinf.(indiv_terms))
 				result = -Inf
@@ -600,7 +652,7 @@ function get_deriv_orders_matrix(num_parts::Int64)
 	return all_deriv_ords
 end
 
-function get_rf_wavefunc(config::Vector{ComplexF64},reject_sets_matrix::Matrix{Vector{Vector{Int64}}},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
+function get_rf_wavefunc(config::Vector{ComplexF64},acc_sets_matrix::Matrix{Vector{Vector{Int64}}},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
 	num_parts::Int8 = length(config)
 	wavefunc::ComplexF64 = 1.0
 	if log_form
@@ -623,8 +675,8 @@ function get_rf_wavefunc(config::Vector{ComplexF64},reject_sets_matrix::Matrix{V
 		end
 		#
 		for j in 1:num_parts
-			full_matrix[i,j] = get_rf_elem_proj(config,j,i,reject_sets_matrix,pascal_row,deriv_orders,qpart,log_form)
-			#string_matrix[i,j] = get_rf_elem_proj(config,j,i,reject_sets_matrix,pascal_row,qpart)
+			full_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix,pascal_row,deriv_orders,qpart,log_form)
+			#string_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix,pascal_row,qpart)
 		end
 	end
 	#
