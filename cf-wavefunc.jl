@@ -33,18 +33,6 @@ function get_qpart_wf_exp(config,qpart,which_qpart,part,n,exp_check=true)
 	return result
 end
 
-function get_Jis_rej(config::Vector{ComplexF64},part::Int,rejected_parts=[])
-	ji = 1.0
-	num_parts = length(config)
-	for i in 1:num_parts
-		if i == part || i in rejected_parts
-			continue
-		end
-		dist_btw = config[part]-config[i]
-		ji *= dist_btw
-	end
-	return Complex(ji)
-end
 
 function get_Jis(config::Vector{ComplexF64},part::Int,acc_parts=[])
 	ji = 1.0
@@ -445,30 +433,6 @@ function prob_wavefunc_laughlin(complex_config, m)
 	return full
 end
 
-function nested_loop_rej(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any}},all_ji_reject_sets::Vector)
-	#sum_parts = [0 for i in 1:order-1]
-	order::Int = length(keys(allowed_vals_dict))
-	parts_count::Int = length(allowed_vals_dict["s1"]) + 1
-	if loop_level == order
-		for i in 1:length(allowed_vals_dict["s$order"])
-			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
-			ji_rejects = deleteat!([j for j in 1:parts_count],ji_allowed_vals)
-		
-			append!(all_ji_reject_sets,[ji_rejects])
-		end
-		
-		return 
-	
-	end
-	next_level::Int = loop_level + 1
-	for i in 1:length(allowed_vals_dict["s$loop_level"])
-		sum_part = allowed_vals_dict["s$loop_level"][i]
-		allowed_vals_dict["s$next_level"] = deleteat!(allowed_vals_dict["s$loop_level"].+(1-1),i)
-		nested_loop_rej(loop_level + 1,allowed_vals_dict,all_ji_reject_sets)
-	end
-	
-end
-
 function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any}},all_ji_acc_sets::Vector)
 	#sum_parts = [0 for i in 1:order-1]
 	order::Int = length(keys(allowed_vals_dict))
@@ -500,26 +464,6 @@ function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any
 		nested_loop(loop_level + 1,allowed_vals_dict,all_ji_acc_sets)
 	end
 	
-end
-
-function get_all_reject_sets(order::Int64,part::Int64,parts_count::Int64)
-	starting_allowed_vals_dict::Dict{String,Vector{Any}} = Dict([("s$i",[]) for i in 1:order])
-	starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
-	
-	all_ji_reject_sets = []
-	nested_loop_rej(1,starting_allowed_vals_dict,all_ji_reject_sets)
-	return all_ji_reject_sets
-end
-
-function get_reject_sets_matrix(num_parts::Int64)
-	reject_sets_matrix = Matrix{Vector{Vector{Int}}}(undef,num_parts,num_parts-1)
-	for which_part in 1:num_parts
-		for which_order in 1:num_parts-1
-			reject_sets_matrix[which_part,which_order] = get_all_reject_sets(which_order,which_part,num_parts)
-		end
-	end
-	
-	return reject_sets_matrix
 end
 
 function get_all_acc_sets(order::Int64,part::Int64,parts_count::Int64)

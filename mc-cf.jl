@@ -74,11 +74,11 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 end
 
 function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false)
-	reject_sets_matrix = Matrix{Vector{Int}}(undef,(0,0))
+	allowed_sets_matrix = Matrix{Vector{Int}}(undef,(0,0))
 	full_pasc_tri = Vector{Vector{Int}}(undef,0)
 	full_deriv_ords = Vector{Vector{Any}}(undef,0)
 	if vers == "RFA"
-		reject_sets_matrix = get_reject_sets_matrix(num_parts)
+		allowed_sets_matrix = get_allowed_sets_matrix(num_parts)
 		full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:num_parts]
 		full_derivs = get_deriv_orders_matrix(num_parts)
 		println("Made All Presets")
@@ -154,11 +154,11 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			time_wavefunc[index] = wavefunc
 			index += 1
 		end
-		#
+		#=
 		if i%(collection_time*0.01) == 0
 			println("Running $n $p:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
-		#=
+		#
 		if i%(samp_freq*steps_per_file) == 0
 			number += 1
 			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
@@ -189,8 +189,8 @@ function auto_correlation(energies, delta_t)
     return (mean(autocorrelation_top)/autocorrelation_bottom)
 end
 #
-particles = 4
-mc_steps = 100
+particles = 10
+mc_steps = 10
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
 which_np = 1#parse(Int64,ARGS[1])
@@ -206,13 +206,14 @@ x_rad = x_rads[rad_choice]
 qpart_choices = [[0,[0.0]],[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
 qpart_selected = 1#parse(Int64,ARGS[1])
 qpart = qpart_choices[qpart_selected]
-rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
+rezz = @time main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
 
+#=
 flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
 figure()
 hist2D(real.(flat_data),-imag.(flat_data),bins=100)
 title("$qpart")
-#
+=#
 
 #=
 data_count = 50

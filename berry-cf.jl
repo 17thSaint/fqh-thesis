@@ -4,7 +4,7 @@ include("read-CF-data.jl")
 include("cf-wavefunc.jl")
 include("energy-time-correlation.jl")
 
-function get_expval(vers,rejects_matrix,all_pascal,all_derivs,n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=false)
+function get_expval(vers,acc_matrix,all_pascal,all_derivs,n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=false)
 	qpart_data,pos_data_og,wavefunc_data = hdf5_data
 	rm = sqrt(2*size(pos_data_og)[1]*(2*p*n+1)/n)
 	len = length(wavefunc_data)
@@ -54,7 +54,7 @@ function get_expval(vers,rejects_matrix,all_pascal,all_derivs,n,p,hdf5_data,chos
 			if vers == "CF"
 				new_wavefunc = get_wavefunc_fromlog(local_config,n,p,qpart_data)
 			elseif vers == "RFA"
-				new_wavefunc = get_rf_wavefunc(local_config,rejects_matrix,all_pascal,all_derivs,qpart_data,log_form)
+				new_wavefunc = get_rf_wavefunc(local_config,acc_matrix,all_pascal,all_derivs,qpart_data,log_form)
 			end
 			ratio_wavefunc = exp(new_wavefunc - wavefunc_data[i])
 			#calced_vals[i] = imag(ratio_wavefunc)/dtheta
@@ -63,7 +63,7 @@ function get_expval(vers,rejects_matrix,all_pascal,all_derivs,n,p,hdf5_data,chos
 			if vers == "CF"
 				new_wavefunc = get_wavefunc(local_config,n,p,qpart_data)
 			elseif vers == "RFA"
-				new_wavefunc = new_wavefunc = get_rf_wavefunc(local_config,rejects_matrix,all_pascal,all_derivs,qpart_data,log_form)
+				new_wavefunc = new_wavefunc = get_rf_wavefunc(local_config,acc_matrix,all_pascal,all_derivs,qpart_data,log_form)
 			end
 			ratio_wavefunc = new_wavefunc / wavefunc_data[i]
 			#calced_vals[i] = imag(ratio_wavefunc)/dtheta
@@ -90,8 +90,8 @@ end
 
 
 particles = 10
-rej_mat = get_reject_sets_matrix(particles)
-println("Got Rej Matrix")
+acc_mat = get_allowed_sets_matrix(particles)
+println("Got Acc Matrix")
 full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
 println("Got Pasc Triangle")
 full_deriv_ords = get_deriv_orders_matrix(particles)
@@ -119,7 +119,7 @@ n_berry,p_berry = np_vals[which_np_getberry]
 		corr_length_1q = 10#get_autocorr_length(radii_data_1q[3],1)[1]
 		println("Corr Length: $corr_length_1q")
 		rads_1q[i,which_np_getberry] = real(radii_data_1q[1][2][1])
-		berry_calc_1q = get_expval(flux_type,rej_mat,full_pasc_tri,full_deriv_ords,n_berry,p_berry,radii_data_1q,1,-0.001,corr_length_1q,log_form)
+		berry_calc_1q = get_expval(flux_type,acc_mat,full_pasc_tri,full_deriv_ords,n_berry,p_berry,radii_data_1q,1,-0.001,corr_length_1q,log_form)
 		berries_1q[i,which_np_getberry] = berry_calc_1q[1]
 		errors_1q[i,which_np_getberry] = berry_calc_1q[2]
 		#two_counts[i,j] = berry_calc_1q[3]
@@ -129,7 +129,7 @@ n_berry,p_berry = np_vals[which_np_getberry]
 		corr_length_2q = 10#get_autocorr_length(radii_data_2q[3],1)[1]
 		println("Corr Length: $corr_length_2q")
 		rads_2q[i,which_np_getberry] = real(radii_data_2q[1][2][1])
-		berry_calc_2q = get_expval(flux_type,rej_mat,full_pasc_tri,full_deriv_ords,n_berry,p_berry,radii_data_2q,1,-0.001,corr_length_2q,log_form)
+		berry_calc_2q = get_expval(flux_type,acc_mat,full_pasc_tri,full_deriv_ords,n_berry,p_berry,radii_data_2q,1,-0.001,corr_length_2q,log_form)
 		berries_2q[i,which_np_getberry] = berry_calc_2q[1]
 		errors_2q[i,which_np_getberry] = berry_calc_2q[2]
 		#origin_counts[i,j] = berry_calc_2q[3]
