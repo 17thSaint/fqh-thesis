@@ -470,7 +470,7 @@ function get_all_acc_sets(order::Int64,part::Int64,parts_count::Int64)
 	starting_allowed_vals_dict::Dict{String,Vector{Any}} = Dict([("s$i",[]) for i in 1:order])
 	starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
 	
-	all_ji_acc_sets = []
+	all_ji_acc_sets::Vector{Vector{Int64}} = []
 	nested_loop(1,starting_allowed_vals_dict,all_ji_acc_sets)
 	return all_ji_acc_sets
 end
