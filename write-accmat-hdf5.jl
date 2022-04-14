@@ -56,6 +56,14 @@ function read_acc_matrix_data(folder::String,particles::Int64,part::Int64,order:
 	return vecovecs_data
 end
 
+chosen_parts = parse(Int64,ARGS[1])
+for part in 1:chosen_parts
+	for order in 1:chosen_parts-1
+		calced_list = get_all_acc_sets(order,part,chosen_parts)
+		matrix_list = make_vecovecs_matrix(calced_list)
+		write_acc_matrix_data("NA",chosen_parts,part,order,matrix_list)
+	end
+end
 
 
 
