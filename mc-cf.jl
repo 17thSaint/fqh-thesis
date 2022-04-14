@@ -11,7 +11,7 @@ function move_particle(num_parts::Int,chosen::Int,step_size::Float64)
 	return shift_matrix
 end
 
-function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chosen::Int,step_size::Float64,reject_sets_matrix=Matrix{Vector{Int}}(undef),all_pascal=[],all_deriv_orders=[],qpart=[0,[0]],log_form=false)
+function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chosen::Int,step_size::Float64,start_wavefunc::ComplexF64,reject_sets_matrix=Matrix{Vector{Int}}(undef),all_pascal=[],all_deriv_orders=[],qpart=[0,[0]],log_form=false)
 	num_parts = length(config)
 	shift_matrix = move_particle(num_parts,chosen,step_size)
 	rand_num = rand(Float64)	
@@ -19,10 +19,10 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 	#
 	if log_form
 		if vers == "CF"
-		start_wavefunc = get_wavefunc_fromlog(config,n,p,qpart)
+		#start_wavefunc = get_wavefunc_fromlog(config,n,p,qpart)
 		new_wavefunc = get_wavefunc_fromlog(config+shift_matrix,n,p,qpart)
 		elseif vers == "RFA"
-		start_wavefunc = get_rf_wavefunc(config,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
+		#start_wavefunc = get_rf_wavefunc(config,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
 		new_wavefunc = get_rf_wavefunc(config+shift_matrix,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
 		end
 		start_ham = 2*real(start_wavefunc)
@@ -51,10 +51,10 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 		rand_num = log(rand_num)*2*0.5
 	else
 		if vers == "RFA"
-		start_wavefunc = get_rf_wavefunc(config,reject_sets_matrix,all_pascal,all_deriv_orders,qpart)
+		#start_wavefunc = get_rf_wavefunc(config,reject_sets_matrix,all_pascal,all_deriv_orders,qpart)
 		new_wavefunc = get_rf_wavefunc(config+shift_matrix,reject_sets_matrix,all_pascal,all_deriv_orders,qpart)
 		elseif vers == "CF"
-		start_wavefunc = get_wavefunc(config,n,p,qpart)
+		#start_wavefunc = get_wavefunc(config,n,p,qpart)
 		new_wavefunc = get_wavefunc(config+shift_matrix,n,p,qpart)
 		end
 		start_ham = abs2(start_wavefunc)
@@ -98,7 +98,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		if vers == "CF"
 		starting_wavefunc = get_wavefunc_fromlog(running_config,n,p,qpart)
 		elseif vers == "RFA"
-		starting_wavefunc = get_rf_wavefunc(running_config,reject_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
+		starting_wavefunc = get_rf_wavefunc(running_config,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 		end
 		if isinf(real(starting_wavefunc))
 			running_config = start_rand_config(num_parts,n,p)
@@ -108,6 +108,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			starting_check = false
 		end
 	end
+	next_wavefunc = get_rf_wavefunc(running_config,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 	filling = n/(2*p*n+1)
 	rm = sqrt(2*num_parts/filling)
 	lstar = sqrt(2*p*n+1)
@@ -125,7 +126,8 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
 		end
 		for j_therm in 1:num_parts
-			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,reject_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
+			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
+			next_wavefunc = movement[4]
 			if movement[1]
 				running_config = movement[2]
 			else
@@ -137,7 +139,8 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
 		for j in 1:num_parts
-			movement = acc_rej_move(vers,running_config,n,p,j,step_size,reject_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
+			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
+			next_wavefunc = movement[4]
 			if movement[1]
 				acc_count += movement[3]
 				running_config = movement[2]
@@ -189,7 +192,7 @@ function auto_correlation(energies, delta_t)
     return (mean(autocorrelation_top)/autocorrelation_bottom)
 end
 #
-particles = 10
+particles = 4
 mc_steps = 10
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
