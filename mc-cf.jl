@@ -12,7 +12,7 @@ function move_particle(num_parts::Int,chosen::Int,step_size::Float64)
 	return shift_matrix
 end
 
-function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chosen::Int,step_size::Float64,start_wavefunc::ComplexF64,reject_sets_matrix=Matrix{Vector{Int}}(undef),all_pascal=[],all_deriv_orders=[],qpart=[0,[0]],log_form=false,inc=false)
+function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chosen::Int,step_size::Float64,start_wavefunc::ComplexF64,reject_sets_matrix=Matrix{Vector{Int}}(undef),all_pascal=[],all_deriv_orders=[],qpart=[0,[0]],log_form=false)
 	num_parts = length(config)
 	shift_matrix = move_particle(num_parts,chosen,step_size)
 	rand_num = rand(Float64)	
@@ -20,13 +20,9 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 	#
 	if log_form
 		if vers == "CF"
-		#start_wavefunc = get_wavefunc_fromlog(config,n,p,qpart)
-		new_wavefunc = get_wavefunc_fromlog(config+shift_matrix,n,p,qpart)
+			new_wavefunc = get_wavefunc_fromlog(config+shift_matrix,n,p,qpart)
 		elseif vers == "RFA"
-		if inc
-			start_wavefunc = get_rf_wavefunc(config,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
-		end
-		new_wavefunc = get_rf_wavefunc(config+shift_matrix,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
+			new_wavefunc = get_rf_wavefunc(config+shift_matrix,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
 		end
 		start_ham = 2*real(start_wavefunc)
 		new_ham = 2*real(new_wavefunc)
@@ -54,11 +50,9 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 		rand_num = log(rand_num)*2*0.5
 	else
 		if vers == "RFA"
-		#start_wavefunc = get_rf_wavefunc(config,reject_sets_matrix,all_pascal,all_deriv_orders,qpart)
-		new_wavefunc = get_rf_wavefunc(config+shift_matrix,reject_sets_matrix,all_pascal,all_deriv_orders,qpart)
+			new_wavefunc = get_rf_wavefunc(config+shift_matrix,reject_sets_matrix,all_pascal,all_deriv_orders,qpart)
 		elseif vers == "CF"
-		#start_wavefunc = get_wavefunc(config,n,p,qpart)
-		new_wavefunc = get_wavefunc(config+shift_matrix,n,p,qpart)
+			new_wavefunc = get_wavefunc(config+shift_matrix,n,p,qpart)
 		end
 		start_ham = abs2(start_wavefunc)
 		new_ham = abs2(new_wavefunc)
@@ -76,7 +70,7 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 	return "Acceptance Calculation Error"
 end
 
-function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false,inc=false)
+function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false)
 	allowed_sets_matrix = Matrix{Vector{Int}}(undef,(0,0))
 	full_pasc_tri = Vector{Vector{Int}}(undef,0)
 	full_deriv_ords = Vector{Vector{Any}}(undef,0)
@@ -84,7 +78,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		allowed_sets_matrix = get_full_acc_matrix(num_parts)
 		full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:num_parts]
 		full_derivs = get_deriv_orders_matrix(num_parts)
-		#println("Made All Presets")
+		println("Made All Presets")
 	end
 	starting_check = true
 	low_vers = lowercase(vers)
@@ -129,7 +123,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
 		end
 		for j_therm in 1:num_parts
-			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form,inc)
+			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 			next_wavefunc = movement[4]
 			if movement[1]
 				running_config = movement[2]
@@ -142,7 +136,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	#println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
 		for j in 1:num_parts
-			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form,inc)
+			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 			next_wavefunc = movement[4]
 			if movement[1]
 				acc_count += movement[3]
@@ -161,7 +155,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			index += 1
 		end
 		#=
-		if i%(collection_time*0.01) == 0
+		if i%(collection_time*0.1) == 0
 			println("Running $n $p:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
 		#
@@ -194,9 +188,26 @@ function auto_correlation(energies, delta_t)
     
     return (mean(autocorrelation_top)/autocorrelation_bottom)
 end
-#=
-particles = 10
-mc_steps = 100
+
+function get_autocorr_length(wavefunc_data,samp_freq)
+	energy = 2 .*real.(wavefunc_data)
+	full_length = length(wavefunc_data)
+	#println("Full Length = $full_length")
+	len = full_length*10
+	dts = [i for i in 1:Int(0.1*len)-1]
+	autocorr = [0.0 for i in 1:Int(0.1*len)-1]
+	for i in 1:Int(0.1*len)-1
+		autocorr[i] = auto_correlation(energy,dts[i])
+	end
+	check_below_tol = autocorr .< [0.01 for i in 1:length(autocorr)]
+	#println(autocorr)
+	corr_length = samp_freq*dts[findall(check_below_tol)[1]]
+	return corr_length,dts,autocorr
+end
+
+#
+particles = 4
+mc_steps = 300
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
 which_np = 1#parse(Int64,ARGS[1])
@@ -204,7 +215,7 @@ n,p = np_vals[which_np]
 fill_denom = 2*n*p + 1
 filling = n/(2*p*n+1)
 rm = sqrt(2*particles/filling)
-step_size = 0.4 + 0.175*rm
+#step_size = 0.4 + 0.175*rm
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 k = 5#parse(Int64,ARGS[1])
 rad_choice = k
@@ -212,9 +223,37 @@ x_rad = x_rads[rad_choice]
 qpart_choices = [[0,[0.0]],[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
 qpart_selected = 2#parse(Int64,ARGS[1])
 qpart = qpart_choices[qpart_selected]
-rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
-=#
+#
+datacount = 10
+step_sizes = [(0.001 + i*0.05/datacount)*rm for i in 0:datacount]
+corr_lengths = [0.0 for i in 1:datacount+1]
+accrates = [0.0 for i in 1:datacount+1]
+corr_length_errs = [0.0 for i in 1:datacount+1]
+accrate_errs = [0.0 for i in 1:datacount+1]
+for i in 1:datacount+1
+	println(i/(datacount+1))
+	step_size = step_sizes[i]
+	howmany = 5
+	local_corr_lengths = [0.0 for j in 1:howmany]
+	local_accrates = [0.0 for j in 1:howmany]
+	for j in 1:howmany
+		rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
+		local_corr_lengths[j] = get_autocorr_length(rezz[3],1)[1]
+		local_accrates[j] = rezz[1]
+	end
+	corr_lengths[i] = mean(local_corr_lengths)
+	corr_length_errs[i] = std(local_corr_lengths)
+	accrates[i] = mean(local_accrates)
+	accrate_errs[i] = std(local_accrates)
+end
 
+#figure()
+errorbar(step_sizes,corr_lengths,yerr=[corr_length_errs,corr_length_errs],fmt="-o",label="$particles")
+title("Correlation Length")
+legend()
+#figure()
+#errorbar(step_sizes,accrates,yerr=[accrate_errs,accrate_errs],fmt="-o")
+#title("Acceptance Rate")
 #=
 flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
 figure()
