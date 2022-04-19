@@ -64,7 +64,7 @@ get_rf_wavefunc(this_config,acc_mat,full_pasc_tri,full_derivs,[0,[0]],true)
 end
 end
 =#
-#
+#=
 part_choices = [2,4,6,8]
 time_vals_ext = [0.0 for i in 1:length(part_choices)]
 time_vals_int = [0.0 for i in 1:length(part_choices)]
@@ -146,6 +146,59 @@ errorbar(part_choices,time_vals_int,yerr=[error_vals_int,error_vals_int],fmt="-o
 legend()
 xlabel("Particles")
 title("Time for Single Wavefunction Calculation")
+=#
+
+include("mc-cf.jl")
+
+
+particles = 6
+mc_steps = 100
+log_form = true
+np_vals = [[1,1],[1,2],[2,1]]
+which_np = 1#parse(Int64,ARGS[1])
+n,p = np_vals[which_np]
+fill_denom = 2*n*p + 1
+filling = n/(2*p*n+1)
+rm = sqrt(2*particles/filling)
+step_size = 0.4 + 0.175*rm
+x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
+k = 5#parse(Int64,ARGS[1])
+rad_choice = k
+x_rad = x_rads[rad_choice]
+qpart_choices = [[0,[0.0]],[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
+qpart_selected = 2#parse(Int64,ARGS[1])
+qpart = qpart_choices[qpart_selected]
+main("RFA",n,p,5,particles,step_size,k,qpart,log_form)
+main("RFA",n,p,5,particles,step_size,k,qpart,log_form,true)
+
+howmany = 10
+time_vals_one_local = [0.0 for j in 1:howmany]
+time_vals_both_local = [0.0 for j in 1:howmany]
+for i in 1:howmany
+	println(i/howmany)
+	time_start_one = now()
+	main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
+	time_end_one = now()
+	time_vals_one_local[i] = (time_end_one - time_start_one).value
+	time_start_both = now()
+	main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form,true)
+	time_end_both = now()
+	time_vals_both_local[i] = (time_end_both - time_start_both).value
+end
+one_val = mean(time_vals_one_local)
+one_error = std(time_vals_one_local)
+both_val = mean(time_vals_both_local)
+both_error = std(time_vals_both_local)
+println("One: $one_val +/- $one_error, Both: $both_val +/- $both_error")
+
+
+
+
+
+
+
+
+
 
 
 "fin"

@@ -2,6 +2,7 @@
 using Statistics,PyPlot,LaTeXStrings
 
 include("cf-wavefunc.jl")
+include("write-accmat-hdf5.jl")
 ARGS = false
 include("read-CF-data.jl")
 
@@ -11,7 +12,7 @@ function move_particle(num_parts::Int,chosen::Int,step_size::Float64)
 	return shift_matrix
 end
 
-function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chosen::Int,step_size::Float64,start_wavefunc::ComplexF64,reject_sets_matrix=Matrix{Vector{Int}}(undef),all_pascal=[],all_deriv_orders=[],qpart=[0,[0]],log_form=false)
+function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chosen::Int,step_size::Float64,start_wavefunc::ComplexF64,reject_sets_matrix=Matrix{Vector{Int}}(undef),all_pascal=[],all_deriv_orders=[],qpart=[0,[0]],log_form=false,inc=false)
 	num_parts = length(config)
 	shift_matrix = move_particle(num_parts,chosen,step_size)
 	rand_num = rand(Float64)	
@@ -22,7 +23,9 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 		#start_wavefunc = get_wavefunc_fromlog(config,n,p,qpart)
 		new_wavefunc = get_wavefunc_fromlog(config+shift_matrix,n,p,qpart)
 		elseif vers == "RFA"
-		#start_wavefunc = get_rf_wavefunc(config,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
+		if inc
+			start_wavefunc = get_rf_wavefunc(config,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
+		end
 		new_wavefunc = get_rf_wavefunc(config+shift_matrix,reject_sets_matrix,all_pascal,all_deriv_orders,qpart,log_form)
 		end
 		start_ham = 2*real(start_wavefunc)
@@ -73,15 +76,15 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 	return "Acceptance Calculation Error"
 end
 
-function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false)
+function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false,inc=false)
 	allowed_sets_matrix = Matrix{Vector{Int}}(undef,(0,0))
 	full_pasc_tri = Vector{Vector{Int}}(undef,0)
 	full_deriv_ords = Vector{Vector{Any}}(undef,0)
 	if vers == "RFA"
-		allowed_sets_matrix = get_allowed_sets_matrix(num_parts)
+		allowed_sets_matrix = get_full_acc_matrix(num_parts)
 		full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:num_parts]
 		full_derivs = get_deriv_orders_matrix(num_parts)
-		println("Made All Presets")
+		#println("Made All Presets")
 	end
 	starting_check = true
 	low_vers = lowercase(vers)
@@ -104,7 +107,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			running_config = start_rand_config(num_parts,n,p)
 			#println(running_config[1])
 		else
-			println("Started in $start_count steps")
+			#println("Started in $start_count steps")
 			starting_check = false
 		end
 	end
@@ -126,7 +129,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
 		end
 		for j_therm in 1:num_parts
-			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
+			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form,inc)
 			next_wavefunc = movement[4]
 			if movement[1]
 				running_config = movement[2]
@@ -136,10 +139,10 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			end
 		end
 	end
-	println("Thermalization Done, Starting Data Collection")
+	#println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
 		for j in 1:num_parts
-			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
+			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form,inc)
 			next_wavefunc = movement[4]
 			if movement[1]
 				acc_count += movement[3]
@@ -191,9 +194,9 @@ function auto_correlation(energies, delta_t)
     
     return (mean(autocorrelation_top)/autocorrelation_bottom)
 end
-#
-particles = 4
-mc_steps = 10
+#=
+particles = 10
+mc_steps = 100
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
 which_np = 1#parse(Int64,ARGS[1])
@@ -207,9 +210,10 @@ k = 5#parse(Int64,ARGS[1])
 rad_choice = k
 x_rad = x_rads[rad_choice]
 qpart_choices = [[0,[0.0]],[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
-qpart_selected = 1#parse(Int64,ARGS[1])
+qpart_selected = 2#parse(Int64,ARGS[1])
 qpart = qpart_choices[qpart_selected]
-rezz = @time main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
+rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
+=#
 
 #=
 flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
