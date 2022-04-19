@@ -112,16 +112,16 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	wavefunc = 0.0+im*0.0
 	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = 0#100#Int(0.0001*steps)
+	therm_time = 100#Int(0.0001*steps)
 	collection_time = steps
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
 	index = 1
 	number = 0
 	for i_therm in 1:therm_time
-		if i_therm%(therm_time*0.05) == 0
-			println("Thermalizing:"," ",100*i_therm/therm_time,"%")
-		end
+		#if i_therm%(therm_time*0.05) == 0
+		#	println("Thermalizing:"," ",100*i_therm/therm_time,"%")
+		#end
 		for j_therm in 1:num_parts
 			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 			next_wavefunc = movement[4]
@@ -193,7 +193,7 @@ function get_autocorr_length(wavefunc_data,samp_freq)
 	energy = 2 .*real.(wavefunc_data)
 	full_length = length(wavefunc_data)
 	#println("Full Length = $full_length")
-	len = full_length*10
+	len = 10*full_length
 	dts = [i for i in 1:Int(0.1*len)-1]
 	autocorr = [0.0 for i in 1:Int(0.1*len)-1]
 	for i in 1:Int(0.1*len)-1
@@ -215,7 +215,7 @@ n,p = np_vals[which_np]
 fill_denom = 2*n*p + 1
 filling = n/(2*p*n+1)
 rm = sqrt(2*particles/filling)
-#step_size = 0.4 + 0.175*rm
+step_size = rm/3.0#0.4 + 0.175*rm
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 k = 5#parse(Int64,ARGS[1])
 rad_choice = k
@@ -225,7 +225,7 @@ qpart_selected = 2#parse(Int64,ARGS[1])
 qpart = qpart_choices[qpart_selected]
 #
 datacount = 10
-step_sizes = [(0.001 + i*0.05/datacount)*rm for i in 0:datacount]
+step_sizes = [(0.25 + i*0.5/datacount)*rm for i in 0:datacount]
 corr_lengths = [0.0 for i in 1:datacount+1]
 accrates = [0.0 for i in 1:datacount+1]
 corr_length_errs = [0.0 for i in 1:datacount+1]
@@ -238,22 +238,27 @@ for i in 1:datacount+1
 	local_accrates = [0.0 for j in 1:howmany]
 	for j in 1:howmany
 		rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
-		local_corr_lengths[j] = get_autocorr_length(rezz[3],1)[1]
+		prob = 2*real(rezz[3])
+		local_corr_lengths[j] = get_autocorr_length(prob,1)[1]/mc_steps
 		local_accrates[j] = rezz[1]
+		#rss = round(step_size,digits=3)
+		#plot(prob./maximum(prob),label="$rss")
 	end
+	#
 	corr_lengths[i] = mean(local_corr_lengths)
 	corr_length_errs[i] = std(local_corr_lengths)
 	accrates[i] = mean(local_accrates)
 	accrate_errs[i] = std(local_accrates)
+	#
 end
 
-#figure()
-errorbar(step_sizes,corr_lengths,yerr=[corr_length_errs,corr_length_errs],fmt="-o",label="$particles")
+figure()
+errorbar(step_sizes./rm,corr_lengths,yerr=[corr_length_errs,corr_length_errs],fmt="-o",label="$particles")
 title("Correlation Length")
 legend()
-#figure()
-#errorbar(step_sizes,accrates,yerr=[accrate_errs,accrate_errs],fmt="-o")
-#title("Acceptance Rate")
+figure()
+errorbar(step_sizes,accrates,yerr=[accrate_errs,accrate_errs],fmt="-o")
+title("Acceptance Rate")
 #=
 flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
 figure()
