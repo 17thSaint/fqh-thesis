@@ -1,7 +1,6 @@
 #import Pkg; Pkg.add("HDF5")
 using HDF5
 
-include("cf-wavefunc.jl")
 
 function make_vecovecs_matrix(given_data::Vector{Vector{Int64}})
 	matrix_version::Matrix{Int64} = fill(0,(length(given_data),length(given_data[1])))
@@ -21,6 +20,26 @@ function make_matrix_vecovecs(given_data::Matrix{Int64})
 		end
 	end
 	return vec_version
+end
+
+function rewrite_acc_data(particles::Int64)
+	cd("..")
+	cd("acc-matrix-data")
+	
+	og_file = h5open("AccMat-parts-$particles-old.hdf5","r")
+	new_file = h5open("AccMat-parts-$particles.hdf5","w")
+	for i in 1:particles-1
+		create_group(new_file,"order-$i")
+		order_data = new_file["order-$i"]
+		for j in 1:particles
+			data = read(og_file["part-$j"],"ord-$i")
+			order_data["part-$j"] = data
+		end
+	end
+	close(og_file)
+	close(new_file)
+	cd("..")
+	cd("Codes")
 end
 
 function write_acc_matrix_data(folder::String,particles::Int64,part::Int64,order::Int64,data::Matrix{Int64})
@@ -44,18 +63,32 @@ function write_acc_matrix_data(folder::String,particles::Int64,part::Int64,order
 	close(binary_file)
 end
 
-function read_acc_matrix_data(folder::String,particles::Int64,part::Int64,order::Int64)
+function read_acc_matrix_data(folder::String,particles::Int64,part,order)
 	if folder != "NA"
 		cd("..")
 		cd("$folder")
 	end
-	binary_file = h5open("AccMat-parts-$particles.hdf5","r")
-	data = read(binary_file["part-$part"],"ord-$order")
-	vecovecs_data = make_matrix_vecovecs(data)
+	all_data = Vector{Vector{Vector{Int64}}}(undef,length(order))
+	binary_file = h5open("AccMat-parts-$particles-old.hdf5","r")
+	data = read(binary_file["part-$part"])#read(binary_file["order-$order"])
+	index = 0
+	for i in order
+		index += 1
+		all_data[index] = make_matrix_vecovecs(data["ord-$i"])
+	end
 	close(binary_file)
-	return vecovecs_data
+	if folder != "NA"
+		cd("..")
+		cd("Codes")
+	end
+	if typeof(order) == Int64
+		return all_data[1]
+	end
+	return all_data
 end
 
+
+#=
 chosen_parts = parse(Int64,ARGS[1])
 for part in 1:chosen_parts
 	for order in 1:chosen_parts-1
@@ -64,7 +97,7 @@ for part in 1:chosen_parts
 		write_acc_matrix_data("NA",chosen_parts,part,order,matrix_list)
 	end
 end
-
+=#
 
 
 "fin"
