@@ -3,7 +3,7 @@
 using HDF5,LinearAlgebra
 
 function write_pos_data_hdf5(folder,vers,mc_steps,particles,n,p,data,rad_count,which,qpart=[0,[0]],log_form=false)
-	println("Starting Data Write")
+	#println("Starting Data Write")
 	if folder != "NA"
 		cd("..")
 		cd("$folder")
@@ -27,7 +27,7 @@ function write_pos_data_hdf5(folder,vers,mc_steps,particles,n,p,data,rad_count,w
 	for i in 1:qpartcount
 		metadata["qpart_position_$i"] = qpart[2][i]
 	end
-	println("Metadata Added")
+	#println("Metadata Added")
 	create_group(binary_file_pos,"all-data")
 	alldata = binary_file_pos["all-data"]
 	alldata["pos_x"] = real(data[1])
@@ -240,10 +240,10 @@ function combine_CF_data(all_data)
 end
 
 function main(args)
-	if typeof(args) == String
-		args == "true" ? true : false
-	else
-		return args
+	if args == "T"
+		return true
+	elseif args == "F"
+		return false
 	end
 end
 make_new = main(ARGS[1])
@@ -251,7 +251,7 @@ make_new = main(ARGS[1])
 if make_new
 	println("Combining Stuff")
 	log_form_comb = true
-	particles_comb = 10
+	particles_comb = 4
 	vers_comb = "RFA"
 	low_vers_comb = lowercase(vers_comb)
 	np_vals_comb = [[1,1],[1,2],[2,1]]
@@ -259,7 +259,7 @@ if make_new
 		n_comb,p_comb = np_vals_comb[k]
 		for j in 1:2
 			qpart_count_comb = j
-			for i in 5:5
+			for i in 1:8
 				rad_choice_comb = i
 				alldats_comb = find_CF_data("$low_vers_comb-data",vers_comb,particles_comb,n_comb,p_comb,rad_choice_comb,qpart_count_comb,log_form_comb)
 				if alldats_comb[2]

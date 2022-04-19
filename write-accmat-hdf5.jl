@@ -65,7 +65,7 @@ end
 
 function read_acc_matrix_data(folder::String,particles::Int64,part,order)
 	if folder != "NA"
-		cd("..")
+		#cd("..")
 		cd("$folder")
 	end
 	all_data = Vector{Vector{Vector{Int64}}}(undef,length(order))
@@ -79,12 +79,21 @@ function read_acc_matrix_data(folder::String,particles::Int64,part,order)
 	close(binary_file)
 	if folder != "NA"
 		cd("..")
-		cd("Codes")
+		#cd("Codes")
 	end
 	if typeof(order) == Int64
 		return all_data[1]
 	end
 	return all_data
+end
+
+function get_full_acc_matrix(num_parts::Int64)
+	acc_mat = Matrix{Vector{Vector{Int}}}(undef,num_parts,num_parts-1)
+	my_orders = [i for i in 1:num_parts-1]
+	for which_part in 1:num_parts
+		acc_mat[which_part,:] = read_acc_matrix_data("acc-matrix-data",num_parts,which_part,my_orders)
+	end
+	return acc_mat
 end
 
 

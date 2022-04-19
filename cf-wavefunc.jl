@@ -560,55 +560,6 @@ function get_nth_deriv_Ji_columncall(config::Vector{ComplexF64},part::Int64,all_
 	return result
 end
 
-function get_nth_deriv_Ji_indivelemcall(config::Vector{ComplexF64},part::Int64,order::Int64,log_form=false)
-	parts_count::Int64 = length(config)
-	result::ComplexF64 = 0.0+im*0.0
-	all_acc_sets::Vector{Vector{Int64}} = read_acc_matrix_data("acc-matrix-data",length(config),part,order)
-	if !log_form
-		all_jis::Vector{ComplexF64} = [get_Jis(config,part,all_acc_sets[i]) for i in 1:length(all_acc_sets)]
-		result = sum(all_jis)
-	else
-		all_jis = [get_logJi(config,part,all_acc_sets[i]) for i in 1:length(all_acc_sets)]
-		#println(length(all_jis))
-		if any(isinf.(all_jis))
-			result = -Inf
-		else
-			if length(all_jis) > 50000
-				result = split_nested_logadd(all_jis)
-			else
-				result = get_nested_logadd(length(all_jis),all_jis,all_jis[end]+1-1)
-			end
-		end
-	end
-	
-	return result
-end
-
-function get_nth_deriv_Ji_internal(config::Vector{ComplexF64},order::Int64,part::Int64,log_form=false)
-	parts_count::Int64 = length(config)
-	result::ComplexF64 = 0.0+im*0.0
-	all_acc_sets::Vector{Vector{Int64}} = get_all_acc_sets(order,part,parts_count)
-	if !log_form
-		all_jis::Vector{ComplexF64} = [get_Jis(config,part,all_acc_sets[i]) for i in 1:length(all_acc_sets)]
-		result = sum(all_jis)
-	else
-		all_jis = [get_logJi(config,part,all_acc_sets[i]) for i in 1:length(all_acc_sets)]
-		#println(length(all_jis))
-		if any(isinf.(all_jis))
-			result = -Inf
-		else
-			if length(all_jis) > 50000
-				result = split_nested_logadd(all_jis)
-			else
-				result = get_nested_logadd(length(all_jis),all_jis,all_jis[end]+1-1)
-			end
-		end
-	end
-	
-	return result
-end
-
-
 function get_pascals_triangle(n::Int64)
 	n == 0 && return [],[0]
 	n == 1 && return [[1]],[1]
@@ -661,48 +612,6 @@ function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_
 	return result
 end
 
-function get_rf_elem_proj_indivelemcall(config::Vector{ComplexF64},part::Int64,row::Int64,pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
-	lstar::Float64 = sqrt(2*1*1+1)
-	qpart_shift::Int64 = qpart[1]
-	if !log_form
-		if row >= qpart_shift + 1
-			jis::Vector{ComplexF64} = [get_Jis(config,part)]
-			append!(jis,[get_nth_deriv_Ji_indivelemcall(config,part,i) for i in 1:row-1])
-			#string_result = join([string(tri_coeffs[i],"J(",deriv_orders[i][1]-1,"')J(",deriv_orders[i][2]-1,"')") for i in 1:length(tri_coeffs)],"+")
-			indiv_terms::Vector{ComplexF64} = [pascals_row[i]*jis[deriv_orders[i][1]]*jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]
-			result::ComplexF64 = 2*sum(indiv_terms)
-		else
-			shift_part::ComplexF64 = conj(qpart[2][row])/(lstar^2)
-			ji_shifted::ComplexF64 = get_Jis(config.-shift_part,part)
-			front_term::ComplexF64 = config[part] + shift_part - conj(qpart[2][row])
-			result = front_term*exp(-shift_part/4)*ji_shifted^2
-			#string_result = latexstring("\$ exp()(z_$part - \\bar{\\eta_{$row}})J_{S$part}^2 \$")
-		end
-	else
-		if row >= qpart_shift + 1
-			jis = [get_logJi(config,part)]
-			append!(jis,[get_nth_deriv_Ji_indivelemcall(config,part,i,log_form) for i in 1:row-1])
-			#println(part," ,",row,", ",pascals_row)
-			indiv_terms = [log(pascals_row[i]) + jis[deriv_orders[i][1]] + jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]  # get rid of for loop here
-			if any(isinf.(indiv_terms))
-				result = -Inf
-			else
-				result = log(2) + get_nested_logadd(length(indiv_terms),indiv_terms,indiv_terms[end]+1-1)
-			end
-			if isnan(result)
-				println("Nan")
-				return indiv_terms
-			end
-		else
-			shift_part = conj(qpart[2][row])/(lstar^2)
-			ji_shifted = get_logJi(config.-shift_part,part)
-			front_term = log(Complex(config[part] + shift_part - conj(qpart[2][row])))
-			result = front_term - shift_part/4 + 2*ji_shifted
-		end
-	end
-	return result
-end
-
 function get_rf_elem_proj_columncall(config::Vector{ComplexF64},part::Int64,row::Int64,pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
 	all_parts = [i for i in 1:length(config)]
 	lstar::Float64 = sqrt(2*1*1+1)
@@ -728,47 +637,6 @@ function get_rf_elem_proj_columncall(config::Vector{ComplexF64},part::Int64,row:
 			jis = [get_logJi(config,part)]
 			append!(jis,[get_nth_deriv_Ji_columncall(config,part,allsets[i],log_form) for i in 1:row-1])
 			#println(part," ,",row,", ",pascals_row)
-			indiv_terms = [log(pascals_row[i]) + jis[deriv_orders[i][1]] + jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]  # get rid of for loop here
-			if any(isinf.(indiv_terms))
-				result = -Inf
-			else
-				result = log(2) + get_nested_logadd(length(indiv_terms),indiv_terms,indiv_terms[end]+1-1)
-			end
-			if isnan(result)
-				println("Nan")
-				return indiv_terms
-			end
-		else
-			shift_part = conj(qpart[2][row])/(lstar^2)
-			ji_shifted = get_logJi(config.-shift_part,part)
-			front_term = log(Complex(config[part] + shift_part - conj(qpart[2][row])))
-			result = front_term - shift_part/4 + 2*ji_shifted
-		end
-	end
-	return result
-end
-
-function get_rf_elem_proj_internal(config::Vector{ComplexF64},part::Int64,row::Int64,pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
-	lstar::Float64 = sqrt(2*1*1+1)
-	qpart_shift::Int64 = qpart[1]
-	if !log_form
-		if row >= qpart_shift + 1
-			jis::Vector{ComplexF64} = [get_Jis(config,part)]
-			append!(jis,[get_nth_deriv_Ji_internal(config,i,part,log_form) for i in 1:row-1])
-			#string_result = join([string(tri_coeffs[i],"J(",deriv_orders[i][1]-1,"')J(",deriv_orders[i][2]-1,"')") for i in 1:length(tri_coeffs)],"+")
-			indiv_terms::Vector{ComplexF64} = [pascals_row[i]*jis[deriv_orders[i][1]]*jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]
-			result::ComplexF64 = 2*sum(indiv_terms)
-		else
-			shift_part::ComplexF64 = conj(qpart[2][row])/(lstar^2)
-			ji_shifted::ComplexF64 = get_Jis(config.-shift_part,part)
-			front_term::ComplexF64 = config[part] + shift_part - conj(qpart[2][row])
-			result = front_term*exp(-shift_part/4)*ji_shifted^2
-			#string_result = latexstring("\$ exp()(z_$part - \\bar{\\eta_{$row}})J_{S$part}^2 \$")
-		end
-	else
-		if row >= qpart_shift + 1
-			jis = [get_logJi(config,part)]
-			append!(jis,[get_nth_deriv_Ji_internal(config,i,part,log_form) for i in 1:row-1])
 			indiv_terms = [log(pascals_row[i]) + jis[deriv_orders[i][1]] + jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]  # get rid of for loop here
 			if any(isinf.(indiv_terms))
 				result = -Inf
@@ -837,45 +705,6 @@ function get_rf_wavefunc(config::Vector{ComplexF64},acc_sets_matrix::Matrix{Vect
 	return wavefunc
 end
 
-function get_rf_wavefunc_indivelemcall(config::Vector{ComplexF64},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
-	num_parts::Int8 = length(config)
-	wavefunc::ComplexF64 = 1.0
-	if log_form
-		wavefunc = 0.0
-	end
-	full_matrix::Matrix{ComplexF64} = fill(0.0+im*0.0,(num_parts,num_parts))
-	#string_matrix = fill("",(num_parts,num_parts))
-	for i in 1:num_parts
-		#
-		pascal_row::Vector{Int64} = all_pascal[i]
-		deriv_orders::Vector{Vector{Int64}} = all_deriv_orders[i]
-		if i <= num_parts
-			#
-			if !log_form
-				wavefunc *= exp(-abs2(config[i])/4)
-			else
-				wavefunc -= abs2(config[i])/4
-			end
-			#
-		end
-		#
-		for j in 1:num_parts
-			full_matrix[i,j] = get_rf_elem_proj_indivelemcall(config,j,i,pascal_row,deriv_orders,qpart,log_form)
-			#string_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix,pascal_row,qpart)
-		end
-	end
-	#
-	if !log_form
-		mat_det::ComplexF64 = det(full_matrix)
-		wavefunc *= mat_det
-	else
-		mat_det = get_log_det(full_matrix)[1]
-		wavefunc += mat_det
-	end
-	#
-	return wavefunc
-end
-
 function get_rf_wavefunc_columncall(config::Vector{ComplexF64},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
 	num_parts::Int8 = length(config)
 	wavefunc::ComplexF64 = 1.0
@@ -900,45 +729,6 @@ function get_rf_wavefunc_columncall(config::Vector{ComplexF64},all_pascal::Vecto
 		#
 		for j in 1:num_parts
 			full_matrix[i,j] = get_rf_elem_proj_columncall(config,j,i,pascal_row,deriv_orders,qpart,log_form)
-			#string_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix,pascal_row,qpart)
-		end
-	end
-	#
-	if !log_form
-		mat_det::ComplexF64 = det(full_matrix)
-		wavefunc *= mat_det
-	else
-		mat_det = get_log_det(full_matrix)[1]
-		wavefunc += mat_det
-	end
-	#
-	return wavefunc
-end
-
-function get_rf_wavefunc_internal(config::Vector{ComplexF64},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
-	num_parts::Int8 = length(config)
-	wavefunc::ComplexF64 = 1.0
-	if log_form
-		wavefunc = 0.0
-	end
-	full_matrix::Matrix{ComplexF64} = fill(0.0+im*0.0,(num_parts,num_parts))
-	#string_matrix = fill("",(num_parts,num_parts))
-	for i in 1:num_parts
-		#
-		pascal_row::Vector{Int64} = all_pascal[i]
-		deriv_orders::Vector{Vector{Int64}} = all_deriv_orders[i]
-		if i <= num_parts
-			#
-			if !log_form
-				wavefunc *= exp(-abs2(config[i])/4)
-			else
-				wavefunc -= abs2(config[i])/4
-			end
-			#
-		end
-		#
-		for j in 1:num_parts
-			full_matrix[i,j] = get_rf_elem_proj_internal(config,j,i,pascal_row,deriv_orders,qpart,log_form)
 			#string_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix,pascal_row,qpart)
 		end
 	end
