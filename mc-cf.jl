@@ -1,9 +1,9 @@
 #import Pkg; Pkg.add("Statistics")
-using Statistics
+using Statistics,PyPlot
 
 include("cf-wavefunc.jl")
 include("write-accmat-hdf5.jl")
-#ARGS = "F"
+ARGS = "F"
 include("read-CF-data.jl")
 
 function move_particle(num_parts::Int,chosen::Int,step_size::Float64)
@@ -165,7 +165,8 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		if i%(samp_freq*steps_per_file) == 0
 			number += 1
 			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
-			write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+			folderhere = lowercase(vers)
+			write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
 		#
 	end
@@ -178,7 +179,7 @@ end
 
 #
 particles = 8
-mc_steps = 10
+mc_steps = 100000
 log_form = true
 np_vals = [[1,1],[1,2],[2,1]]
 which_np = 1#parse(Int64,ARGS[1])
@@ -191,12 +192,169 @@ x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 k = 5#parse(Int64,ARGS[2])
 rad_choice = k
 x_rad = x_rads[rad_choice]
-qpart_choices = [[0,[0.0]],[1,[x_rad+im*0.0]],[2,[x_rad+im*0.0,0.0+im*0.0]]]
-qpart_selected = parse(Int64,ARGS[2])
+qp1 = (0.1+im*0.0)*rm
+qp2 = (0.1-im*0.0)*rm
+qpart_choices = [[0,[0.0]],[1,[qp1]],[2,[qp1,qp2]]]
+qpart_selected = 1#parse(Int64,ARGS[2])
 qpart = qpart_choices[qpart_selected]
 rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
 
 
+#=
+comb_dats = read_comb_CF_hdf5("rfa-data","RFA",particles,n,p,1,qpart[1],true)
+compl = collect(Iterators.flatten([comb_dats[2][i,:] for i in 1:particles]))
+figure()
+hist2D(real.(compl),-imag.(compl),bins=100)
+=#
+
+#=
+dub_qpart = [1,[qp2]]#qpart_choices[3]
+no_qpart = qpart_choices[1]
+sing_qpart = qpart_choices[2]
+#qpl = qpart[2][1]
+
+
+#=
+flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
+figure()
+hist2D(real.(flat_data),-imag.(flat_data),bins=100,range=[[0.5*rm,0.75*rm],[-0.25*rm,0.25*rm]])
+title("$qpl")
+=#
+
+
+tots = 10
+top = 0.2
+#=
+given_locs = [0.0+im*0.0 for i in 0:tots]
+sim_locs = [0.0+im*0.0 for i in 0:tots]
+for k in 1:tots+1
+println(k/(tots+1))
+this_loc = (top - (k-1)*top*2/tots) + 0.0*im
+given_locs[k] = this_loc
+sing_qpart = [1,[this_loc*rm]]
+=#
+data_count = 50
+allowed_sets_matrix = get_full_acc_matrix(particles)
+full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
+full_derivs = get_deriv_orders_matrix(particles)
+#xs = [real(qpl)-0.2*rm + i*(2*0.2*rm)/data_count for i in 1:data_count]
+coords_config = [0.0+0.01*im]#start_rand_config(particles,n,p)#10*(rand(particles) + im*rand(particles))
+for i in 0:4
+	append!(coords_config,[1.0*rm*exp(im*i*1*pi/4)])
+end
+xs = [-(top+0.05)*rm + 2*(top+0.05)*rm*i/data_count + 0.001*rm for i in 1:data_count]
+ys = [-0.25*rm + 2*0.25*rm*i/data_count + 0.001*rm for i in 1:data_count]
+#rf_wavefunc_nqp = fill(0.0,(data_count,data_count))
+rf_wavefunc_sqp = fill(0.0,(data_count,data_count))
+rf_wavefunc_dqp = fill(0.0,(data_count,data_count))
+#cf_wavefunc_nqp = fill(0.0,(data_count,data_count))
+#cf_wavefunc_sqp = fill(0.0,(data_count,data_count))
+#cf_wavefunc_dqp = fill(0.0,(data_count,data_count))
+for i in 1:length(xs)
+	#println(i/length(xs))
+	local_x = xs[i]
+	for j in 1:length(xs)
+		local_y = ys[j]
+		coords_config[1] = local_x - im*local_y
+			
+		#cf_wavefunc_sqp[j,i] = 2*real(get_wavefunc_fromlog(coords_config,n,p,sing_qpart))
+		#cf_wavefunc_dqp[j,i] = 2*real(get_wavefunc_fromlog(coords_config,n,p,qpart))
+		#cf_wavefunc_nqp[j,i] = 2*real(get_wavefunc_fromlog(coords_config,n,p,no_qpart))
+		rf_wavefunc_sqp[j,i] = 2*real(get_rf_wavefunc(coords_config,allowed_sets_matrix,full_pasc_tri,full_derivs,sing_qpart,true))
+		rf_wavefunc_dqp[i,j]  = 2*real(get_rf_wavefunc(coords_config,allowed_sets_matrix,full_pasc_tri,full_derivs,dub_qpart,true))
+		#rf_wavefunc_nqp[j,i]  = 2*real(get_rf_wavefunc(coords_config,allowed_sets_matrix,full_pasc_tri,full_derivs,no_qpart,true))
+	end
+end
+
+figure()
+imshow(rf_wavefunc_sqp./maximum(rf_wavefunc_sqp))
+title("RF QP Reg")
+colorbar()
+figure()
+imshow(rf_wavefunc_dqp./maximum(rf_wavefunc_dqp))
+title("RF QP Conj")
+colorbar()
+=#
+
+#=
+matrix_elements = findfirst(rf_wavefunc_sqp.==minimum(rf_wavefunc_sqp))
+sim_loc = (xs[matrix_elements[2]] - im*xs[matrix_elements[1]])/rm
+sim_locs[k] = sim_loc
+
+end
+#
+figure()
+plot(real.(given_locs),imag(given_locs),label="Given")
+plot(real.(sim_locs),imag(sim_locs),"-p",label="Sim")
+legend()
+
+figure()
+plot(abs.(sim_locs - given_locs))
+title("Radius Change")
+=#
+
+#=
+if false
+figure()
+imshow(rf_wavefunc_nqp./maximum(rf_wavefunc_nqp))
+title("RF No QP")
+colorbar()
+end
+if false
+figure()
+imshow(rf_wavefunc_sqp./maximum(rf_wavefunc_sqp))
+title("RF QP")
+colorbar()
+end
+if false
+figure()
+imshow(rf_wavefunc_dqp./maximum(rf_wavefunc_dqp))
+title("RF 2QP")
+colorbar()
+end
+if false
+figure()
+imshow(rf_wavefunc_sqp./maximum(rf_wavefunc_sqp)-rf_wavefunc_nqp./maximum(rf_wavefunc_nqp))
+title("RF Diff 0-1")
+colorbar()
+end
+if false
+figure()
+imshow(rf_wavefunc_dqp./maximum(rf_wavefunc_dqp)-rf_wavefunc_sqp./maximum(rf_wavefunc_sqp))
+title("RF Diff 1-2")
+colorbar()
+end
+if true
+figure()
+imshow(cf_wavefunc_nqp./maximum(cf_wavefunc_nqp))
+title("CF No QP")
+colorbar()
+end
+if true
+figure()
+imshow(cf_wavefunc_sqp./maximum(cf_wavefunc_sqp))
+title("CF QP")
+colorbar()
+end
+if true
+figure()
+imshow(cf_wavefunc_sqp./maximum(cf_wavefunc_sqp)-cf_wavefunc_nqp./maximum(cf_wavefunc_nqp))
+title("CF Diff 0-1")
+colorbar()
+end
+if false
+figure()
+imshow(cf_wavefunc_dqp./maximum(cf_wavefunc_dqp))
+title("CF 2 QP")
+colorbar()
+end
+if false
+figure()
+imshow(cf_wavefunc_sqp./maximum(cf_wavefunc_sqp)-cf_wavefunc_dqp./maximum(cf_wavefunc_dqp))
+title("CF Diff 1-2")
+colorbar()
+end
+=#
 
 
 

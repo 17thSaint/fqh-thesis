@@ -3,6 +3,54 @@ using LinearAlgebra
 
 include("write-accmat-hdf5.jl")
 
+function get_energies_alltimes(xs,ys,m,qhole,num_parts,dt)
+	time_counts = Int(size(xs)[2]/dt)
+	energies = [0.0 for i in 1:time_counts]
+	for i in 1:time_counts
+		#if i % (0.05*time_counts) == 0
+		#	println("Getting Energies: ",(i-1)*100/time_counts,"%")
+		#end
+		time = Int(1+(i-1)*dt)
+		input_config = 
+		local_energy = prob_wavefunc(input_config,m,qhole,num_parts)
+		energies[i] = local_energy
+	end
+	return energies
+end
+
+function auto_correlation(energies, delta_t)
+    average_energy = mean(energies)
+    
+    points = Int(floor(length(energies)-delta_t))
+    
+    energy_fluctuations = energies.-average_energy
+    
+    autocorrelation_top = [0.0 for i in 1:points]
+    autocorrelation_bottom = mean(energy_fluctuations.^2)
+    
+    for i in 1:points
+        autocorrelation_top[i] = energy_fluctuations[i]*energy_fluctuations[i+delta_t]
+    end
+    
+    return (mean(autocorrelation_top)/autocorrelation_bottom)
+end
+
+function get_autocorr_length(wavefunc_data,samp_freq)
+	energy = 2 .*real.(wavefunc_data)
+	full_length = length(wavefunc_data)
+	#println("Full Length = $full_length")
+	len = 1000
+	dts = [1+(i-1)*1 for i in 1:Int(0.1*len)-1]
+	autocorr = [0.0 for i in 1:Int(0.1*len)-1]
+	for i in 1:Int(0.1*len)-1
+		autocorr[i] = auto_correlation(energy,dts[i])
+	end
+	check_below_tol = autocorr .< [0.01 for i in 1:length(autocorr)]
+	#println(autocorr)
+	corr_length = samp_freq*dts[findall(check_below_tol)[1]]
+	return corr_length,dts,autocorr
+end
+
 function start_rand_config(num_parts::Int,n::Int,p::Int)
 	filling = n/(2*p*n+1)
 	rm = sqrt(2*num_parts/filling)
@@ -603,10 +651,17 @@ function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_
 				return indiv_terms
 			end
 		else
+			#= this is RFA version
 			shift_part = conj(qpart[2][row])/(lstar^2)
 			ji_shifted = get_logJi(config.-shift_part,part)
 			front_term = log(Complex(config[part] + shift_part - conj(qpart[2][row])))
 			result = front_term - shift_part/4 + 2*ji_shifted
+			=#
+			# 
+			exp_part = (conj(qpart[2][row])*config[part] - abs2(qpart[2][row])/2)/(2*lstar^2)
+			front_term = config[part] - conj(qpart[2][row])
+			result = log(Complex(front_term))# + exp_part
+			#
 		end
 	end
 	return result

@@ -13,13 +13,13 @@ function write_pos_data_hdf5(folder,vers,mc_steps,particles,n,p,data,rad_count,w
 		if qpartcount > 0
 			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$rad_count-rad-log-$which.hdf5","w")
 		else 
-			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$rad_count-log.hdf5","w")
+			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-log-$which.hdf5","w")
 		end
 	else
 		if qpartcount > 0
 			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$rad_count-rad-$which.hdf5","w")
 		else 
-			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$rad_count.hdf5","w")
+			binary_file_pos = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpartcount-$which.hdf5","w")
 		end
 	end
 	create_group(binary_file_pos,"metadata")
@@ -49,9 +49,17 @@ function write_comb_CF_hdf5(folder,vers,particles,n,p,data,rad_choice,log_form)
 	end
 	qpart_count = data[1][1]
 	if log_form
-		binary_file_pos = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice-log.hdf5","w")
+		if qpart_count == 0
+			binary_file_pos = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-log.hdf5","w")
+		else
+			binary_file_pos = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice-log.hdf5","w")
+		end
 	else
-		binary_file_pos = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","w")
+		if qpart_count == 0
+			binary_file_pos = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count.hdf5","w")
+		else
+			binary_file_pos = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","w")
+		end
 	end
 	create_group(binary_file_pos,"metadata")
 	metadata = binary_file_pos["metadata"]
@@ -78,15 +86,24 @@ function read_comb_CF_hdf5(folder,vers,particles,n,p,rad_choice,qpart_count,log_
 		cd("$folder")
 	end
 	if log_form
-	file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice-log.hdf5","r")
+		if qpart_count == 0
+			file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-log.hdf5","r")
+		else
+			file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice-log.hdf5","r")
+		end
 	else
-		file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","r")
+		if qpart_count == 0
+			file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count.hdf5","r")
+		else
+			file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","r")
+		end
 	end
 	qpart_data = [read(file["metadata"],"qpart_position_$i") for i in 1:qpart_count]
 	full_qpart_data = [qpart_count,qpart_data]
 	positions = read(file["all-data"],"pos_x") - im.*read(file["all-data"],"pos_y")
 	wavefunc_data = read(file["all-data"],"wavefunc")
 	full_data = [full_qpart_data,positions,wavefunc_data]
+	close(file)
 	
         if folder != "NA"
             cd("..")
@@ -111,16 +128,20 @@ function read_CF_hdf5(folder,vers,mc_steps,particles,n,p,which,rad_count=1,qpart
 		positions = read(file["all-data"],"pos_x") - im.*read(file["all-data"],"pos_y")
 		wavefunc_data = read(file["all-data"],"wavefunc")
 		full_data = [full_qpart_data,positions,wavefunc_data]
+	#
 	elseif qpart_count < 1
 		if log_form
-			file = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$which-log.hdf5","r")
+			file = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpart_count-log-$which.hdf5","r")
 		else
-			file = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-$which.hdf5","r")
+			file = h5open("$vers-pos-mc-$mc_steps-part-$particles-n-$n-p-$p-qpart-$qpart_count-$which.hdf5","r")
 		end
 		positions = read(file["all-data"],"pos_x") - im.*read(file["all-data"],"pos_y")
 		wavefunc_data = read(file["all-data"],"wavefunc")
-		full_data = [positions,wavefunc_data]
+		qpart_data = [0,[0.0]]
+		full_data = [qpart_data,positions,wavefunc_data]
 	end
+	#
+	close(file)
         if folder != "NA"
             cd("..")
             cd("Codes")
@@ -128,7 +149,34 @@ function read_CF_hdf5(folder,vers,mc_steps,particles,n,p,which,rad_count=1,qpart
 	return full_data
 end
 
+function rename_comb_file(given_file)
+	this_file = h5open("$given_file","r")
+	total_length = length((this_file["all-data"])["wavefunc"])
+	og_split = split(given_file,".")
+	new_name = og_split[1] * "-len-$total_length." * og_split[2]
+	close(this_file)
+	return new_name
+end
 
+function rename_pos_file(given_file)
+	all_atrs = split(given_file,".")[1]
+	sepd_atrs = split(all_atrs,"-")
+	if length(sepd_atrs[end]) < 2
+		sepd_atrs[end] = "10" * sepd_atrs[end]
+	else
+		sepd_atrs[end] = "1" * sepd_atrs[end]
+	end
+	new_name_array = ["" for i in 1:Int(2*length(sepd_atrs)-1)]
+	for i in 1:Int(2*length(sepd_atrs)-1)
+		if i%2 == 0
+			new_name_array[i] = "-"
+		else
+			new_name_array[i] = sepd_atrs[Int((i+1)/2)] 
+		end
+	end
+	new_name = prod(new_name_array) * ".hdf5"
+	return new_name
+end
 
 function find_CF_data(folder,vers,particles,n,p,rad_choice,qpart_count,log_form)
 	if folder != "NA"
@@ -158,17 +206,21 @@ function find_CF_data(folder,vers,particles,n,p,rad_choice,qpart_count,log_form)
 			n_here = parse(Int,separated[findall(i->i=="n",separated)[1] + 1])
 			p_here = parse(Int,separated[findall(i->i=="p",separated)[1] + 1])
 			if n_here == n && p_here == p
+				qpartcount_here = parse(Int,separated[findall(i->i=="qpart",separated)[1] + 1])
+				if qpartcount_here == qpart_count
 				#radcount_here = parse(Int,separated[13])
-				if separated[3] == "comb"
-					radcount_here = parse(Int,separated[findall(i->i=="rad",separated)[1] + 1])
-				else
-					radcount_here = parse(Int,separated[findall(i->i=="rad",separated)[1] - 1])
-				end
-				if radcount_here == rad_choice
 					#qpartcount_here = parse(Int,separated[12])
 					#println(separated[findall(i->i=="qpart",separated)[1] + 1])
-					qpartcount_here = parse(Int,separated[findall(i->i=="qpart",separated)[1] + 1])
-					if qpartcount_here == qpart_count
+					if qpartcount_here != 0
+						if separated[3] == "comb"
+							radcount_here = parse(Int,separated[findall(i->i=="rad",separated)[1] + 1])
+						else
+							radcount_here = parse(Int,separated[findall(i->i=="rad",separated)[1] - 1])
+						end
+					else
+						radcount_here = rad_choice
+					end
+					if radcount_here == rad_choice
 						if separated[3] == "comb"
 							data_here = read_comb_CF_hdf5("NA",vers,parts_here,n_here,p_here,radcount_here,qpartcount_here,log_form)
 						else
@@ -200,8 +252,21 @@ function find_CF_data(folder,vers,particles,n,p,rad_choice,qpart_count,log_form)
 			cd("..")
 			if length(repeat) > 0
 				println("Found overlap: $file_name")
+				if split(file_name,"-")[3] == "comb"
+					println("Moving Comb File")
+					new_name = rename_comb_file(file_name)
+					mv("$file_name","indiv-comb-$low_vers-data/$new_name",force=false)
+				else
+					new_name = rename_pos_file(file_name)
+					mv("$file_name","indiv-comb-$low_vers-data/$new_name",force=false)
+				end
 			else
-				mv("$file_name","indiv-comb-$low_vers-data/$file_name",force=false)
+				if split(file_name,"-")[3] == "comb"
+					new_name = rename_comb_file(file_name)
+					mv("$file_name","indiv-comb-$low_vers-data/$new_name",force=false)
+				else
+					mv("$file_name","indiv-comb-$low_vers-data/$file_name",force=false)
+				end
 			end
 		end
 		#
@@ -240,6 +305,7 @@ function combine_CF_data(all_data)
 end
 
 function main(args)
+	args = string(args)
 	if args == "T"
 		return true
 	elseif args == "F"
@@ -257,9 +323,9 @@ if make_new
 	np_vals_comb = [[1,1],[1,2],[2,1]]
 	for k in 1:1
 		n_comb,p_comb = np_vals_comb[k]
-		for j in 1:2
+		for j in 0:2
 			qpart_count_comb = j
-			for i in 1:8
+			for i in 5:5
 				rad_choice_comb = i
 				alldats_comb = find_CF_data("$low_vers_comb-data",vers_comb,particles_comb,n_comb,p_comb,rad_choice_comb,qpart_count_comb,log_form_comb)
 				if alldats_comb[2]
@@ -275,7 +341,6 @@ if make_new
 	end
 
 end
-
 
 
 
