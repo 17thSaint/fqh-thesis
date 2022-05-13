@@ -185,46 +185,48 @@ if true
 end;
 end
 
+
+
 if true
-@testset "wavefunc-RFA" begin
-	rejs_mat = get_reject_sets_matrix(particles)
-	full_derivs = get_deriv_orders_matrix(particles)
+allowed_mat = get_allowed_sets_matrix(particles)
+full_derivs = get_deriv_orders_matrix(particles)
 	
-	full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
+full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
+@testset "wavefunc-RFA" begin
 	# testing element of matrix same for reg and log
 	for j in 1:particles
 	for i in 1:particles
-	log_element_rf = get_rf_elem_proj(coords3,i,j,rejs_mat,full_pasc_tri[j],full_derivs[j],[0,[0]],true)
-	reg_element_rf = get_rf_elem_proj(coords3,i,j,rejs_mat,full_pasc_tri[j],full_derivs[j])
+	log_element_rf = get_rf_elem_proj(coords3,i,j,allowed_mat,full_pasc_tri[j],full_derivs[j],[0,[0]],true)
+	reg_element_rf = get_rf_elem_proj(coords3,i,j,allowed_mat,full_pasc_tri[j],full_derivs[j])
 	@test isapprox(reg_element_rf/exp(log_element_rf),1.0,atol=10^(-2))
 	end
 	end
 	#
-	one_rf_wavefunc = abs2(get_rf_wavefunc(100 .*coords1,rejs_mat,full_pasc_tri,full_derivs))
-	one_rf_log_wavefunc = 2*real(get_rf_wavefunc(100 .*coords1,rejs_mat,full_pasc_tri,full_derivs,[0,[0]],true))
+	one_rf_wavefunc = abs2(get_rf_wavefunc(100 .*coords1,allowed_mat,full_pasc_tri,full_derivs))
+	one_rf_log_wavefunc = 2*real(get_rf_wavefunc(100 .*coords1,allowed_mat,full_pasc_tri,full_derivs,[0,[0]],true))
 	#@test isapprox(one_rf_wavefunc,0.0,atol=10^(-5))
 	@test one_rf_log_wavefunc < 0.0
 	
 	# testing wavefunction is same reg and log
-	reg_rf_wavefunc = get_rf_wavefunc(coords3,rejs_mat,full_pasc_tri,full_derivs)
-	log_rf_wavefunc = get_rf_wavefunc(coords3,rejs_mat,full_pasc_tri,full_derivs,[0,[0]],true)
+	reg_rf_wavefunc = get_rf_wavefunc(coords3,allowed_mat,full_pasc_tri,full_derivs)
+	log_rf_wavefunc = get_rf_wavefunc(coords3,allowed_mat,full_pasc_tri,full_derivs,[0,[0]],true)
 	@test isapprox(reg_rf_wavefunc/exp(log_rf_wavefunc),1.0,atol=10^(-3))
 	#
 	coords_qpart_test_rf = 100 .*(rand(particles) + im*rand(particles))
 	#qpart_test = [2,100 .*start_rand_config(2,n,p)]
 	# testing wavefunction is same for reg and log with quasiparticles
 	qpart_test_rf = [2,[rand(Float64)+im*rand(Float64),rand(Float64)+im*rand(Float64)]]
-	reg_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,full_pasc_tri,full_derivs,qpart_test_rf)
-	log_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,full_pasc_tri,full_derivs,qpart_test_rf,true)
+	reg_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,allowed_mat,full_pasc_tri,full_derivs,qpart_test_rf)
+	log_rf_wavefunc_q = get_rf_wavefunc(coords_qpart_test_rf,allowed_mat,full_pasc_tri,full_derivs,qpart_test_rf,true)
 	@test isapprox(reg_rf_wavefunc_q,exp(log_rf_wavefunc_q),atol=10^(-3))
 	
 	# testing particle overlapping quasiparticle is zero reg form
 	coords_qpart_test_rf[1] == qpart_test_rf[2][1] + eps()
-	qpart_overlap_wavefunc_rf = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,full_pasc_tri,full_derivs,qpart_test_rf)
+	qpart_overlap_wavefunc_rf = get_rf_wavefunc(coords_qpart_test_rf,allowed_mat,full_pasc_tri,full_derivs,qpart_test_rf)
 	@test isapprox(abs2(qpart_overlap_wavefunc_rf),0.0,atol=10^(-4))
 	
 	# testing particle overlapping quasiparticle is zero log form
-	qpart_overlap_wavefunc_log_rf = get_rf_wavefunc(coords_qpart_test_rf,rejs_mat,full_pasc_tri,full_derivs,qpart_test_rf,true)
+	qpart_overlap_wavefunc_log_rf = get_rf_wavefunc(coords_qpart_test_rf,allowed_mat,full_pasc_tri,full_derivs,qpart_test_rf,true)
 	@test isapprox(exp(2*real(qpart_overlap_wavefunc_log_rf)),0.0,atol=10^(-5))
 	#
 end;
@@ -234,34 +236,35 @@ if true
 @testset "ji-derivs" begin
 	local_config = 10 .*(rand(particles) + im.*rand(particles))
 	part = 1
-	rejs_mat = get_reject_sets_matrix(particles)
-	rejs_column_order1 = rejs_mat[:,1]
-	rejs_column_order2 = rejs_mat[:,2]
+	allowed_mat = get_allowed_sets_matrix(particles)
+	allowed_column_order1 = allowed_mat[:,1]
+	allowed_column_order2 = allowed_mat[:,2]
 	
-	nest_deriv_1 = get_nth_deriv_Ji(local_config,part,rejs_column_order1)
+	nest_deriv_1 = get_nth_deriv_Ji(local_config,part,allowed_column_order1)
 	og_deriv_1 = get_Jiprime(local_config,part,1)
 	@test isapprox(og_deriv_1,nest_deriv_1,atol=sqrt(eps()))
 	
-	nest_deriv_2 = get_nth_deriv_Ji(local_config,part,rejs_column_order2)
+	nest_deriv_2 = get_nth_deriv_Ji(local_config,part,allowed_column_order2)
 	og_deriv_2 = get_Ji2prime(local_config,part,1)
 	@test isapprox(og_deriv_2,nest_deriv_2,atol=sqrt(eps()))
 	
-	nest_log_deriv_1 = get_nth_deriv_Ji(local_config,part,rejs_column_order1,true)
+	nest_log_deriv_1 = get_nth_deriv_Ji(local_config,part,allowed_column_order1,true)
 	og_log_deriv_1 = get_logJiprime(local_config,part,1)
-	@test isapprox(og_deriv_1,nest_deriv_1,atol=sqrt(eps()))
+	@test isapprox(og_log_deriv_1,nest_log_deriv_1,atol=10^-3)
 	
-	nest_log_deriv_2 = get_nth_deriv_Ji(local_config,part,rejs_column_order2,true)
+	nest_log_deriv_2 = get_nth_deriv_Ji(local_config,part,allowed_column_order2,true)
 	og_log_deriv_2 = get_logJi2prime(local_config,part,1)
-	@test isapprox(og_log_deriv_2,nest_log_deriv_2,atol=sqrt(eps()))
+	@test isapprox(og_log_deriv_2,nest_log_deriv_2,atol=10^-3)
 end;
 end
 
 if true && n < 2
-@testset "origin-div" begin
-	rm = sqrt(2*12*(2*p*n+1)/n)
+@testset "origin-diverg" begin
+	parts_here = 12
+	rm = sqrt(2*parts_here*(2*p*n+1)/n)
 	data_count = 50
 	xs = [-1.5*rm + i*(2*1.5*rm)/data_count for i in 1:data_count]
-	coords_config = 10*(rand(12) + im*rand(12))
+	coords_config = 10*(rand(parts_here) + im*rand(parts_here))
 	laugh_wavefunc = fill(0.0,(data_count,data_count))
 	cf_wavefunc = fill(0.0,(data_count,data_count))
 	for i in 1:length(xs)
@@ -282,6 +285,38 @@ if true && n < 2
 	for i in 1:length(xs)
 		for j in 1:length(xs)
 			@test isapprox(diff[i,j],0.0,atol=10^(-5))
+		end
+	end
+end;
+end
+if true && n < 2
+@testset "rf-match-laugh" begin
+	rm = sqrt(2*4*(2*p*n+1)/n)
+	data_count = 50
+	xs = [-1.5*rm + i*(2*1.5*rm)/data_count for i in 1:data_count]
+	coords_config = 1*(rand(4) + im*rand(4))
+	laugh_wavefunc = fill(0.0,(data_count,data_count))
+	cf_wavefunc = fill(0.0,(data_count,data_count))
+	rf_wavefunc = fill(0.0,(data_count,data_count))
+	for i in 1:length(xs)
+		local_x = xs[i]
+		for j in 1:length(xs)
+			local_y = xs[j]
+			#append!(xs_plot,[local_x])
+			#append!(ys_plot,[local_y])
+			coords_config[1] = local_x - im*local_y
+			
+			laugh_wavefunc[i,j] = -prob_wavefunc_laughlin(coords_config,2*p*n+1)
+			cf_wavefunc[i,j] = 2*real(get_wavefunc_fromlog(coords_config,n,p))
+			rf_wavefunc[i,j] = 2*real(get_rf_wavefunc(coords_config,allowed_mat,full_pasc_tri,full_derivs,[0,[0.0]],true))
+		end
+	end
+	diff_laugh = exp.(laugh_wavefunc - rf_wavefunc .- log(256))
+	diff_cf = exp.(cf_wavefunc - rf_wavefunc .- log(256))
+	for i in 1:length(xs)
+		for j in 1:length(xs)
+			@test isapprox(diff_laugh[i,j],0.0,atol=10^(-5))
+			@test isapprox(diff_cf[i,j],0.0,atol=10^(-5))
 		end
 	end
 end;
