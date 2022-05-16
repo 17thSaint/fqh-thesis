@@ -95,7 +95,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		if vers == "CF"
 		starting_wavefunc = get_wavefunc_fromlog(running_config,n,p,qpart)
 		elseif vers == "RFA"
-		starting_wavefunc = get_rf_wavefunc(running_config,allowed_sets_matrix,full_pasc_tri,full_deriv_ords,qpart,log_form)
+		starting_wavefunc = get_rf_wavefunc(running_config,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 		end
 		if isinf(real(starting_wavefunc))
 			running_config = start_rand_config(num_parts,n,p)
@@ -110,13 +110,14 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	else
 		next_wavefunc = get_wavefunc_fromlog(running_config,n,p,qpart)
 	end
-	filling = n/(2*p*n+1)
+	filling = n/(2*p*n-1)
+	denom = 2*p*n-1
 	rm = sqrt(2*num_parts/filling)
-	lstar = sqrt(2*p*n+1)
+	lstar = sqrt(2*p*n-1)
 	wavefunc = 0.0+im*0.0
 	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = 0#100#Int(0.0001*steps)
+	therm_time = 100#Int(0.0001*steps)
 	collection_time = steps
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
@@ -127,7 +128,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		#	println("Thermalizing:"," ",100*i_therm/therm_time,"%")
 		#end
 		for j_therm in 1:num_parts
-			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_deriv_ords,qpart,log_form)
+			movement = acc_rej_move(vers,running_config,n,p,j_therm,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 			next_wavefunc = movement[4]
 			if movement[1]
 				running_config = movement[2]
@@ -141,7 +142,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	for i in 1:collection_time
 		
 		for j in 1:num_parts
-			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_deriv_ords,qpart,log_form)
+			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 			next_wavefunc = movement[4]
 			if movement[1]
 				acc_count += movement[3]
@@ -163,16 +164,17 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		end
 		#
 		if i%(collection_time*0.01) == 0
-			println("Running $n $p:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
+			println("Running $n/$denom:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
-		#=
+		#
 		if i%(samp_freq*steps_per_file) == 0
 			number += 1
 			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
 			folderhere = lowercase(vers)
-			write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+			#write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+			write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
-		=#
+		#
 	end
 
 	acc_rate = acc_count/(num_parts*steps)
@@ -184,27 +186,33 @@ end
 #
 particles = 4
 log_form = true
-#=
+#
 mc_steps = 100000
 
 np_vals = [[1,1],[1,2],[2,1]]
-which_np = 1#parse(Int64,ARGS[1])
+which_np = 2
 n,p = np_vals[which_np]
-fill_denom = 2*n*p + 1
-filling = n/(2*p*n+1)
+fill_denom = 2*n*p - 1
+filling = n/(2*p*n-1)
 rm = sqrt(2*particles/filling)
 step_size = rm/3.0#0.4 + 0.175*rm
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 k = 5#parse(Int64,ARGS[2])
 rad_choice = k
 x_rad = x_rads[rad_choice]
-qp1 = (0.1+im*0.0)*rm
-qp2 = (0.1-im*0.0)*rm
-qpart_choices = [[0,[0.0]],[1,[qp1]],[2,[qp1,qp2]]]
-qpart_selected = 1#parse(Int64,ARGS[2])
+qpart_choices = [[0,[0.0]],[1,[x_rad]],[2,[x_rad,0.0+im*0.0]]]
+qpart_selected = parse(Int64,ARGS[2])
 qpart = qpart_choices[qpart_selected]
-#rezz = main("CF",n,p,mc_steps,particles,step_size,k,qpart,log_form)
+rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
+
+#=comb_dats = read_comb_CF_hdf5("rfa-data","RFA",particles,n,p,1,qpart[1],true)
+compl = collect(Iterators.flatten([rezz[2][i,:] for i in 1:particles]))
+figure()
+hist2D(real.(compl),-imag.(compl),bins=100)
+qpcount = qpart[1]
+title("$qpcount QPs")
 =#
+#
 #=
 top = 0.5*rm
 selected_dats = []
@@ -217,11 +225,7 @@ for i in 1:length(rezz[3])
 	end
 end
 =#
-#=comb_dats = read_comb_CF_hdf5("rfa-data","RFA",particles,n,p,1,qpart[1],true)
-compl = collect(Iterators.flatten([rezz[2][i,:] for i in 1:particles]))
-figure()
-hist2D(real.(compl),-imag.(compl),bins=100)
-=#
+
 
 #
 #dub_qpart = [1,[qp2]]#qpart_choices[3]
@@ -235,7 +239,7 @@ flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
 figure()
 hist2D(real.(flat_data),-imag.(flat_data),bins=100,range=[[0.5*rm,0.75*rm],[-0.25*rm,0.25*rm]])
 title("$qpl")
-=#
+
 
 
 tots = 10
@@ -413,7 +417,7 @@ colorbar()
 end
 =#
 
-
+=#
 
 
 
