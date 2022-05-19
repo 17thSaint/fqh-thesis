@@ -73,7 +73,7 @@ end
 function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false)
 	allowed_sets_matrix = Matrix{Vector{Int}}(undef,(0,0))
 	full_pasc_tri = Vector{Vector{Int}}(undef,0)
-	full_deriv_ords = Vector{Vector{Any}}(undef,0)
+	full_derivs = Vector{Vector{Any}}(undef,0)
 	if vers == "RFA"
 		allowed_sets_matrix = get_full_acc_matrix(num_parts)
 		full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:num_parts]
@@ -110,14 +110,14 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	else
 		next_wavefunc = get_wavefunc_fromlog(running_config,n,p,qpart)
 	end
-	filling = n/(2*p*n-1)
-	denom = 2*p*n-1
+	filling = n/(2*p*n+1)
+	denom = 2*p*n+1
 	rm = sqrt(2*num_parts/filling)
 	lstar = sqrt(2*p*n-1)
 	wavefunc = 0.0+im*0.0
 	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = 100#Int(0.0001*steps)
+	therm_time = 0#100#Int(0.0001*steps)
 	collection_time = steps
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
@@ -166,7 +166,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		if i%(collection_time*0.01) == 0
 			println("Running $n/$denom:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
 		end
-		#
+		#=
 		if i%(samp_freq*steps_per_file) == 0
 			number += 1
 			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
@@ -174,7 +174,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			#write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 			write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
-		#
+		=#
 	end
 
 	acc_rate = acc_count/(num_parts*steps)
@@ -184,33 +184,32 @@ end
 
 
 #
-particles = 4
+particles = 6
 log_form = true
 #
-mc_steps = 100000
+mc_steps = 100
 
-np_vals = [[1,1],[1,2],[2,1]]
-which_np = 2
-n,p = np_vals[which_np]
-fill_denom = 2*n*p - 1
-filling = n/(2*p*n-1)
-rm = sqrt(2*particles/filling)
-step_size = rm/3.0#0.4 + 0.175*rm
-x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
+#np_vals = [[1,1],[1,2],[2,1]]
+#which_np = 1
+#n,p = np_vals[which_np]
+#fill_denom = 2*n*p + 1
+#filling = n/(2*p*n+1)
+#rm = sqrt(2*particles/filling)
+#step_size = rm/3.0#0.4 + 0.175*rm
+#x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 k = 5#parse(Int64,ARGS[2])
 rad_choice = k
-x_rad = x_rads[rad_choice]
-qpart_choices = [[0,[0.0]],[1,[x_rad]],[2,[x_rad,0.0+im*0.0]]]
-qpart_selected = parse(Int64,ARGS[2])
-qpart = qpart_choices[qpart_selected]
-rezz = main("RFA",n,p,mc_steps,particles,step_size,k,qpart,log_form)
+#x_rad = x_rads[rad_choice]
+#qpart_choices = [[0,[0.0]],[1,[x_rad]],[2,[x_rad,0.0+im*0.0]]]
+#qpart_selected = 1#parse(Int64,ARGS[2])
+#qpart = qpart_choices[qpart_selected]
+#rezz = main("CF",n,p,mc_steps,particles,step_size,k,qpart,log_form)
 
 #=comb_dats = read_comb_CF_hdf5("rfa-data","RFA",particles,n,p,1,qpart[1],true)
 compl = collect(Iterators.flatten([rezz[2][i,:] for i in 1:particles]))
 figure()
 hist2D(real.(compl),-imag.(compl),bins=100)
-qpcount = qpart[1]
-title("$qpcount QPs")
+
 =#
 #
 #=
@@ -239,11 +238,11 @@ flat_data = Iterators.flatten([rezz[2][i,:] for i in 1:particles])
 figure()
 hist2D(real.(flat_data),-imag.(flat_data),bins=100,range=[[0.5*rm,0.75*rm],[-0.25*rm,0.25*rm]])
 title("$qpl")
-
+=#
 
 
 tots = 10
-top = 1.5
+top = 10.5
 rm_1 = sqrt(2*particles*3)
 #
 #given_locs = [0.0+im*0.0 for i in 0:tots]
@@ -252,9 +251,9 @@ rm_1 = sqrt(2*particles*3)
 #println(k/(tots+1))
 #this_loc = (top - (k-1)*top*2/tots) + 0.0*im
 #given_locs[k] = this_loc
-sing_qpart = [1,[(0.5+im*0.0)*rm_1]]
+#sing_qpart = [1,[(0.5+im*0.0)*rm_1]]
 nqp_qpart = [0,[0.0]]
-dub_qpart = [2,[(0.5+im*0.0)*rm_1,0.0+im*0.0]]
+#dub_qpart = [2,[(0.5+im*0.0)*rm_1,0.0+im*0.0]]
 n,p = 1,1
 #
 data_count = 100
@@ -270,11 +269,11 @@ if true
 xs = [-(top+0.05)*rm_1 + 2*(top+0.05)*rm_1*i/data_count + 0.001*rm_1 for i in 1:data_count]
 #ys = [-0.25*rm + 2*0.25*rm*i/data_count + 0.001*rm for i in 1:data_count]
 rf_wavefunc_nqp = fill(0.0+im*0.0,(data_count,data_count))
-rf_wavefunc_sqp = fill(0.0+im*0.0,(data_count,data_count))
-rf_wavefunc_dqp = fill(0.0+im*0.0,(data_count,data_count))
+#rf_wavefunc_sqp = fill(0.0+im*0.0,(data_count,data_count))
+#rf_wavefunc_dqp = fill(0.0+im*0.0,(data_count,data_count))
 cf_wavefunc_nqp = fill(0.0+im*0.0,(data_count,data_count))
-cf_wavefunc_sqp = fill(0.0+im*0.0,(data_count,data_count))
-cf_wavefunc_dqp = fill(0.0+im*0.0,(data_count,data_count))
+#cf_wavefunc_sqp = fill(0.0+im*0.0,(data_count,data_count))
+#cf_wavefunc_dqp = fill(0.0+im*0.0,(data_count,data_count))
 for i in 1:length(xs)
 	#println(i/length(xs))
 	local_x = xs[i]
@@ -282,11 +281,11 @@ for i in 1:length(xs)
 		local_y = xs[j]
 		coords_config[1] = local_x - im*local_y
 			
-		cf_wavefunc_sqp[j,i] = get_wavefunc_fromlog(coords_config,n,p,sing_qpart)
-		cf_wavefunc_dqp[j,i] = get_wavefunc_fromlog(coords_config,n,p,dub_qpart)
-		cf_wavefunc_nqp[j,i] = get_wavefunc_fromlog(coords_config,n,p,nqp_qpart)
-		rf_wavefunc_sqp[j,i] = get_rf_wavefunc(coords_config,allowed_sets_matrix,full_pasc_tri,full_derivs,sing_qpart,true)
-		rf_wavefunc_dqp[i,j]  = get_rf_wavefunc(coords_config,allowed_sets_matrix,full_pasc_tri,full_derivs,dub_qpart,true)
+		#cf_wavefunc_sqp[j,i] = get_wavefunc_fromlog(coords_config,n,p,sing_qpart)
+		#cf_wavefunc_dqp[j,i] = get_wavefunc_fromlog(coords_config,n,p,dub_qpart)
+		#cf_wavefunc_nqp[j,i] = get_wavefunc_fromlog(coords_config,n,p,nqp_qpart)
+		#rf_wavefunc_sqp[j,i] = get_rf_wavefunc(coords_config,allowed_sets_matrix,full_pasc_tri,full_derivs,sing_qpart,true)
+		#rf_wavefunc_dqp[i,j]  = get_rf_wavefunc(coords_config,allowed_sets_matrix,full_pasc_tri,full_derivs,dub_qpart,true)
 		rf_wavefunc_nqp[j,i]  = get_rf_wavefunc(coords_config,allowed_sets_matrix,full_pasc_tri,full_derivs,nqp_qpart,true)
 	end
 end
@@ -307,14 +306,14 @@ end
 
 
 if true
-get_flux_plot(rf_wavefunc_sqp,coords_config,"RF QP")
+#get_flux_plot(rf_wavefunc_sqp,coords_config,"RF QP")
 get_flux_plot(rf_wavefunc_nqp,coords_config,"RF No QP")
-get_flux_plot(rf_wavefunc_dqp,coords_config,"RF 2 QP")
+#get_flux_plot(rf_wavefunc_dqp,coords_config,"RF 2 QP")
 end
-if true
-get_flux_plot(cf_wavefunc_sqp,coords_config,"CF QP")
+if false
+#get_flux_plot(cf_wavefunc_sqp,coords_config,"CF QP")
 get_flux_plot(cf_wavefunc_nqp,coords_config,"CF No QP")
-get_flux_plot(cf_wavefunc_dqp,coords_config,"CF 2 QP")
+#get_flux_plot(cf_wavefunc_dqp,coords_config,"CF 2 QP")
 end
 
 
@@ -417,7 +416,7 @@ colorbar()
 end
 =#
 
-=#
+#
 
 
 

@@ -60,9 +60,9 @@ end
 
 function get_wf_elem(num_parts,element,n,qpart=[0,[0]])
 	qpart_shift = qpart[1]
-	if n == 2 && element[1] > num_parts/2 + qpart_shift
+	if n == 2 && element[1] > floor(num_parts/2) + qpart_shift
 		m = 1
-		pow = element[1] - num_parts/2 - 1 - qpart_shift
+		pow = element[1] - floor(num_parts/2) - 1 - qpart_shift
 		result = [m,pow]
 	else
 		m = 0
@@ -211,7 +211,7 @@ function get_wavefunc(config,n,p,qpart=[0,[0]])
 	end
 	#println(matrix_full)
 	wavefunc *= det(matrix_full)
-	return wavefunc,matrix_full
+	return wavefunc#,matrix_full
 end
 
 function get_logJi(config::Vector{ComplexF64},part::Int64,acc_parts=[false,[]],shift=0.0)

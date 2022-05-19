@@ -294,7 +294,7 @@ if true && n < 2
 	rm = sqrt(2*4*(2*p*n+1)/n)
 	data_count = 50
 	xs = [-1.5*rm + i*(2*1.5*rm)/data_count for i in 1:data_count]
-	coords_config = 1*(rand(4) + im*rand(4))
+	coords_config = start_rand_config(4,1,1)
 	laugh_wavefunc = fill(0.0,(data_count,data_count))
 	cf_wavefunc = fill(0.0,(data_count,data_count))
 	rf_wavefunc = fill(0.0,(data_count,data_count))
