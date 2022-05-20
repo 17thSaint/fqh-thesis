@@ -98,7 +98,7 @@ function read_comb_CF_hdf5(folder,vers,particles,n,p,rad_choice,qpart_count,log_
 			file = h5open("$vers-pos-comb-part-$particles-n-$n-p-$p-qpart-$qpart_count-rad-$rad_choice.hdf5","r")
 		end
 	end
-	qpart_data = [read(file["metadata"],"qpart_position_$i") for i in 1:qpart_count]
+	qpart_data = [convert(Complex{Float64},read(file["metadata"],"qpart_position_$i")) for i in 1:qpart_count]
 	full_qpart_data = [qpart_count,qpart_data]
 	positions = read(file["all-data"],"pos_x") - im.*read(file["all-data"],"pos_y")
 	wavefunc_data = read(file["all-data"],"wavefunc")
@@ -317,11 +317,11 @@ make_new = main(ARGS[1])
 if make_new
 	println("Combining Stuff")
 	log_form_comb = true
-	particles_comb = 4
+	particles_comb = 8
 	vers_comb = "RFA"
 	low_vers_comb = lowercase(vers_comb)
 	np_vals_comb = [[1,1],[1,2],[2,1]]
-	for k in 1:1
+	for k in 2:2
 		n_comb,p_comb = np_vals_comb[k]
 		for j in 0:2
 			qpart_count_comb = j

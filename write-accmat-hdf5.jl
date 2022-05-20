@@ -1,7 +1,6 @@
 #import Pkg; Pkg.add("HDF5")
 using HDF5
 
-
 function make_vecovecs_matrix(given_data::Vector{Vector{Int64}})
 	matrix_version::Matrix{Int64} = fill(0,(length(given_data),length(given_data[1])))
 	for i in 1:length(given_data)
@@ -65,7 +64,7 @@ end
 
 function read_acc_matrix_data(folder::String,particles::Int64,part,order)
 	if folder != "NA"
-		#cd("..")
+		cd("..")
 		cd("$folder")
 	end
 	all_data = Vector{Vector{Vector{Int64}}}(undef,length(order))
@@ -79,7 +78,7 @@ function read_acc_matrix_data(folder::String,particles::Int64,part,order)
 	close(binary_file)
 	if folder != "NA"
 		cd("..")
-		#cd("Codes")
+		cd("Codes")
 	end
 	if typeof(order) == Int64
 		return all_data[1]
