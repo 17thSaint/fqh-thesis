@@ -1,7 +1,8 @@
 using HDF5, PyPlot
 function read_hdf5_data(num_parts,m,data_type)
 	cd("mc-data")
-	file = h5open("$data_type-mc2000000-notherm.hdf5","r")
+	#file = h5open("$data_type-mc2000000-notherm.hdf5","r")
+	file = h5open("acc-rate-data.hdf5","r")
 	data = read(file["all-data"]["m-$m"]["parts-$num_parts"],"data")
 	cd("..")
 	return data

@@ -1,9 +1,11 @@
 using DelimitedFiles
 function read_data(num_parts,m)
-	cd("mc-data")
-	xpos = readdlm("xpos-P$num_parts-M$m.csv",',',Float64)
-	ypos = readdlm("ypos-P$num_parts-M$m.csv",',',Float64)
 	cd("..")
+	cd("mc-data")
+	xpos = readdlm("xpos-mc2000000-notherm.csv",',',Float64)
+	ypos = readdlm("ypos-mc2000000-notherm.csv",',',Float64)
+	cd("..")
+	cd("Codes")
 	#println("Done Reading M=",m,", ","P=",num_parts)
 	return [xpos,ypos]
 end
@@ -41,6 +43,7 @@ function get_mag_dist_btw(particles,mc_steps,m,data)
 	return mag_dist_btw, avg_mag_dist, choices
 end
 
+
 using PyPlot
 function hist_sep(data,choices,bins,m,particles)  # makes histogram of average particle separation
 	rm = sqrt(2*m*particles)		    # for second half of simulation with max of rm
@@ -73,10 +76,11 @@ end
 bins = 100
 mc_steps = 2000000
 
-#main_data = [read_data(j,i) for i in 1:3 for j in 2:8]
-#mag_dist = [get_mag_dist_btw(j,mc_steps,i,main_data[i]) for i in 1:3 for j in 2:8]
-#hist_data = [hist_sep(mag_dist[i][1],Int(mag_dist[i][3]),bins,i,j) for i in 1:3 for j in 2:8]
+main_data = [read_data(j,i) for i in 1:3 for j in 2:8]
+mag_dist = [get_mag_dist_btw(j,mc_steps,i,main_data[i]) for i in 1:3 for j in 2:8]
+hist_data = [hist_sep(mag_dist[i][1],Int(mag_dist[i][3]),bins,i,j) for i in 1:3 for j in 2:8]
 
+#=
 function make_all(particles,m)
 	main_data = read_data(particles,m)
 	println("Done Reading M=",m,", ","P=",particles)
@@ -93,7 +97,7 @@ for i in 1:3
 		make_all(j,i)
 	end
 end
-
+=#
 #=
 for i in 1:3
 	plot(hist_data[i][1],hist_data[i][2],label="$i")
