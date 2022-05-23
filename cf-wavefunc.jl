@@ -97,6 +97,7 @@ function get_Jis(config::Vector{ComplexF64},part::Int,acc_parts=[false,[]])
 	return Complex(ji)
 end
 
+
 function get_Jiprime(config,part,p)
 	jiprime = 0
 	num_parts = length(config)
@@ -222,7 +223,7 @@ function get_logJi(config::Vector{ComplexF64},part::Int64,acc_parts=[false,[]],s
 	end
 	for i in acc_parts[2]
 		dist_btw::ComplexF64 = config[part]+shift-config[i]
-		logji += log(Complex(dist_btw))#*p
+		logji += log(Complex(dist_btw))
 	end
 	return Complex(logji)
 end
@@ -525,12 +526,22 @@ function get_all_acc_sets(order::Int64,part::Int64,parts_count::Int64)
 	return all_ji_acc_sets
 end
 
+function compress_acc_set(parts_count::Int64,acc_set::Vector{Vector{Int64}})
+	new_acc_set = [ [1,[1 for j in 1:length(acc_set[1])]] for i in 1:binomial(parts_count-1,length(acc_set[1]))]
+	index = 1
+	for i in unique(acc_set)
+		found = findall(x->x==i,acc_set)
+		new_acc_set[index] = [length(found),i]
+		index += 1
+	end
+	return new_acc_set
+end
 
 function get_allowed_sets_matrix(num_parts::Int64)
-	allowed_sets_matrix = Matrix{Vector{Vector{Int}}}(undef,num_parts,num_parts-1)
+	allowed_sets_matrix = Matrix{Any}(undef,num_parts,num_parts-1)
 	for which_part in 1:num_parts
 		for which_order in 1:num_parts-1
-			allowed_sets_matrix[which_part,which_order] = get_all_acc_sets(which_order,which_part,num_parts)
+			allowed_sets_matrix[which_part,which_order] = compress_acc_set(num_parts,get_all_acc_sets(which_order,which_part,num_parts))
 		end
 	end
 	
@@ -561,7 +572,31 @@ function split_nested_logadd(all_vals::Vector{ComplexF64})
 	return Complex(result_allnests)
 end
 
-function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,acc_sets_column::Vector{Vector{Vector{Int64}}},log_form=false)
+function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,acc_sets_column::Vector{Any},log_form=false)
+	parts_count::Int64 = length(config)
+	result::ComplexF64 = 0.0+im*0.0
+	all_acc_sets::Vector{Any} = acc_sets_column[part]
+	if !log_form
+		all_jis::Vector{ComplexF64} = [all_acc_sets[i][1]*get_Jis(config,part,[true,all_acc_sets[i][2]]) for i in 1:length(all_acc_sets)]
+		result = sum(all_jis)
+	else
+		all_jis = [get_logJi(config,part,[true,all_acc_sets[i][2]]) + log(all_acc_sets[i][1]) for i in 1:length(all_acc_sets)]
+		#println(length(all_jis))
+		if any(isinf.(all_jis))
+			result = -Inf
+		else
+			if length(all_jis) > 50000
+				result = split_nested_logadd(all_jis)
+			else
+				result = get_nested_logadd(length(all_jis),all_jis,all_jis[end]+1-1)
+			end
+		end
+	end
+	
+	return result
+end
+
+function get_nth_deriv_Ji_old(config::Vector{ComplexF64},part::Int64,acc_sets_column::Vector{Vector{Vector{Int64}}},log_form=false)
 	parts_count::Int64 = length(config)
 	result::ComplexF64 = 0.0+im*0.0
 	all_acc_sets::Vector{Vector{Int64}} = acc_sets_column[part]
@@ -619,7 +654,7 @@ function get_pascals_triangle(n::Int64)
 	return t,folded
 end
 
-function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_sets_matrix::Matrix{Vector{Vector{Int64}}},pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
+function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_sets_matrix::Matrix{Any},pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
 	lstar::Float64 = sqrt(2*1*1-1)
 	qpart_shift::Int64 = qpart[1]
 	if !log_form
@@ -643,6 +678,60 @@ function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_
 		if row >= qpart_shift + 1
 			jis = [get_logJi(config,part)]
 			append!(jis,[get_nth_deriv_Ji(config,part,acc_sets_matrix[:,i],log_form) for i in 1:row-1])
+			indiv_terms = [log(pascals_row[i]) + jis[deriv_orders[i][1]] + jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]  # get rid of for loop here
+			if any(isinf.(indiv_terms))
+				result = -Inf
+			else
+				result = get_nested_logadd(length(indiv_terms),indiv_terms,indiv_terms[end]+1-1)
+				if row > 1
+					result += log(2)
+				end
+			end
+			if isnan(result)
+				println("Nan")
+				return indiv_terms
+			end
+		else
+			# this is RFA version
+			shift_part = conj(qpart[2][row])/(lstar^2)
+			ji_shifted = get_logJi(config,part,[false,[]],shift_part)
+			front_term = log(Complex(config[part] + shift_part - conj(qpart[2][row])))
+			result = front_term - shift_part*qpart[2][row]/4 + 2*ji_shifted
+			#
+			#= 
+			exp_part = (conj(qpart[2][row])*config[part] - abs2(qpart[2][row])/2)/(2*lstar^2)
+			front_term = config[part] - conj(qpart[2][row])
+			result = log(Complex(front_term))# + exp_part
+			=#
+		end
+	end
+	return result
+end
+
+function get_rf_elem_proj_old(config::Vector{ComplexF64},part::Int64,row::Int64,acc_sets_matrix::Matrix{Vector{Vector{Int64}}},pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
+	lstar::Float64 = sqrt(2*1*1-1)
+	qpart_shift::Int64 = qpart[1]
+	if !log_form
+		if row >= qpart_shift + 1
+			jis::Vector{ComplexF64} = [get_Jis(config,part)]
+			append!(jis,[get_nth_deriv_Ji_old(config,part,acc_sets_matrix[:,i]) for i in 1:row-1])
+			#string_result = join([string(pascals_row[i],"J(",deriv_orders[i][1]-1,"')J(",deriv_orders[i][2]-1,"')") for i in 1:length(pascals_row)],"+")
+			indiv_terms::Vector{ComplexF64} = [pascals_row[i]*jis[deriv_orders[i][1]]*jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]
+			result::ComplexF64 = sum(indiv_terms)
+			if row > 1
+				result *= 2
+			end
+		else
+			shift_part::ComplexF64 = conj(qpart[2][row])/(lstar^2)
+			ji_shifted::ComplexF64 = get_Jis(config.-shift_part,part)
+			front_term::ComplexF64 = config[part] + shift_part - conj(qpart[2][row])
+			result = front_term*exp(-shift_part/4)*ji_shifted^2
+			#string_result = latexstring("\$ exp()(z_$part - \\bar{\\eta_{$row}})J_{S$part}^2 \$")
+		end
+	else
+		if row >= qpart_shift + 1
+			jis = [get_logJi(config,part)]
+			append!(jis,[get_nth_deriv_Ji_old(config,part,acc_sets_matrix[:,i],log_form) for i in 1:row-1])
 			indiv_terms = [log(pascals_row[i]) + jis[deriv_orders[i][1]] + jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]  # get rid of for loop here
 			if any(isinf.(indiv_terms))
 				result = -Inf
@@ -727,7 +816,46 @@ function get_deriv_orders_matrix(num_parts::Int64)
 	return all_deriv_ords
 end
 
-function get_rf_wavefunc(config::Vector{ComplexF64},acc_sets_matrix::Matrix{Vector{Vector{Int64}}},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
+function get_rf_wavefunc_old(config::Vector{ComplexF64},acc_sets_matrix::Matrix{Vector{Vector{Int64}}},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
+	num_parts::Int8 = length(config)
+	wavefunc::ComplexF64 = 1.0
+	if log_form
+		wavefunc = 0.0
+	end
+	full_matrix::Matrix{ComplexF64} = fill(0.0+im*0.0,(num_parts,num_parts))
+	#string_matrix = fill("",(num_parts,num_parts))
+	for i in 1:num_parts
+		#
+		pascal_row::Vector{Int64} = all_pascal[i]
+		deriv_orders::Vector{Vector{Int64}} = all_deriv_orders[i]
+		if i <= num_parts
+			#
+			if !log_form
+				wavefunc *= exp(-abs2(config[i])/4)
+			else
+				wavefunc -= abs2(config[i])/4
+			end
+			#
+		end
+		#
+		for j in 1:num_parts
+			full_matrix[i,j] = get_rf_elem_proj_old(config,j,i,acc_sets_matrix,pascal_row,deriv_orders,qpart,log_form)
+			#string_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix,pascal_row,deriv_orders,qpart,log_form)
+		end
+	end
+	#
+	if !log_form
+		mat_det::ComplexF64 = det(full_matrix)
+		wavefunc *= mat_det
+	else
+		mat_det = get_log_det(full_matrix)[1]
+		wavefunc += mat_det
+	end
+	#
+	return wavefunc#, full_matrix
+end
+
+function get_rf_wavefunc(config::Vector{ComplexF64},acc_sets_matrix::Matrix{Any},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
 	num_parts::Int8 = length(config)
 	wavefunc::ComplexF64 = 1.0
 	if log_form
@@ -765,6 +893,8 @@ function get_rf_wavefunc(config::Vector{ComplexF64},acc_sets_matrix::Matrix{Vect
 	#
 	return wavefunc#, full_matrix
 end
+
+
 
 function get_rf_wavefunc_columncall(config::Vector{ComplexF64},all_pascal::Vector{Vector{Int64}},all_deriv_orders::Vector{Vector{Vector{Int64}}},qpart=[0,[0]],log_form=false)
 	num_parts::Int8 = length(config)
