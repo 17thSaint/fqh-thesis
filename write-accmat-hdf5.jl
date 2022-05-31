@@ -78,7 +78,7 @@ end
 
 function read_acc_matrix_data(folder::String,particles::Int64,part,order,which)
 	if folder != "NA"
-		#cd("..")
+		cd("..")
 		cd("$folder")
 	end
 	all_data = Vector{Vector{Vector{Any}}}(undef,length(order))
@@ -99,7 +99,7 @@ function read_acc_matrix_data(folder::String,particles::Int64,part,order,which)
 	close(binary_file)
 	if folder != "NA"
 		cd("..")
-		#cd("Codes")
+		cd("Codes")
 	end
 	if typeof(order) == Int64
 		return all_data[1]

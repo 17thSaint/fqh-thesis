@@ -537,6 +537,17 @@ function get_allowed_sets_matrix(num_parts::Int64)
 	return allowed_sets_matrix
 end
 
+function write_new_acc_matrix(num_parts::Int64,folder::String)
+	for which_part in 1:num_parts
+		for which_order in 1:num_parts-1
+			println("Part $which_part, Order $which_order")
+			acc_element = compress_acc_set(num_parts,get_all_acc_sets(which_order,which_part,num_parts))
+			matrix_acc_element = make_vecovecs_matrix(acc_element)
+			write_acc_matrix_data(folder,num_parts,which_part,which_order,matrix_acc_element)
+		end
+	end
+end
+
 function get_nested_logadd(loop_level::Int64,all_vals::Vector{ComplexF64},result::ComplexF64)
 	if loop_level == 1
 		#println(result,", ",loop_level)
