@@ -147,7 +147,7 @@ legend()
 xlabel("Particles")
 title("Time for Single Wavefunction Calculation")
 =#
-
+#=
 include("mc-cf.jl")
 
 
@@ -190,15 +190,111 @@ one_error = std(time_vals_one_local)
 both_val = mean(time_vals_both_local)
 both_error = std(time_vals_both_local)
 println("One: $one_val +/- $one_error, Both: $both_val +/- $both_error")
+=#
+#=
+parts = [4,5,6,7,8]
+times_parts = [0.0 for i in 1:length(parts)]
+errors_parts = [0.0 for i in 1:length(parts)]
+for j in 1:length(parts)
+particles = parts[j]
+acc_mat = get_full_acc_matrix(particles)
+all_pascs = [get_pascals_triangle(i)[2] for i in 1:particles]
+all_derivs = get_deriv_orders_matrix(particles)
+this_config = start_rand_config(particles,1,1)
+howmany = 10
+time_vals_one_local = [0.0 for j in 1:howmany]
+get_rf_wavefunc(this_config,acc_mat,all_pascs,all_derivs,[0,[0.0]],true)
+for i in 1:howmany
+	time_start_one = now()
+	get_rf_wavefunc(this_config,acc_mat,all_pascs,all_derivs,[0,[0.0]],true)
+	time_end_one = now()
+	time_vals_one_local[i] = (time_end_one - time_start_one).value
+end
+one_val = mean(time_vals_one_local)
+one_error = std(time_vals_one_local)
 
+time_full = particles*one_val
+error_full = particles*one_error
 
+times_parts[j] = time_full
+errors_parts[j] = error_full
+end
 
+#errorbar(parts,times_parts,yerr=[errors_parts,errors_parts],fmt="-o")
+power_start = 7.6
+power_end = 7.8
+powers = [power_start + i*(power_end-power_start)/10 for i in 0:10]
+howclose = [0.0 for i in 0:10]
+for i in 1:length(powers)
+	pow = powers[i]
+	rez = times_parts./(parts.^pow)
+	perc_error = 100*std(rez)/mean(rez)
+	howclose[i] = perc_error
+end
+plot(powers,howclose)
+=#
+function estim_time(num_parts,mc_steps)
+	n4 = 0.4*mc_steps
+	estim_time = ((num_parts/4)^7.7)*n4/1000
+	return estim_time
+end
+#=
+howmany = 10
+parts = [4,5,6,7,8,9]
+times_new = [0.0 for i in 1:length(parts)]
+errs_new = [0.0 for i in 1:length(parts)]
+times_prev = [0.0 for i in 1:length(parts)]
+errs_prev = [0.0 for i in 1:length(parts)]
+for particles in parts
+println(particles)
+input = [true,particles-1,get_all_acc_sets(particles-2,1,particles)]
+times_prev_local = [0.0 for i in 1:howmany]
+times_new_local = [0.0 for i in 1:howmany]
+errs_prev_local = [0.0 for i in 1:howmany]
+errs_new_local = [0.0 for i in 1:howmany]
+get_allowed_sets_matrix(particles,true)
+get_allowed_sets_matrix(particles)
+#get_all_acc_sets(particles-1,1,particles,input)
+#get_all_acc_sets(particles-1,1,particles)
+for i in 1:howmany
+	time_start_prev = now()
+	get_allowed_sets_matrix(particles,true)
+	#get_all_acc_sets(particles-1,1,particles,input)
+	time_end_prev = now()
+	times_prev_local[i] = (time_end_prev - time_start_prev).value
+	#
+	time_start_new = now()
+	get_allowed_sets_matrix(particles)
+	#get_all_acc_sets(particles-1,1,particles)
+	time_end_new = now()
+	times_new_local[i] = (time_end_new - time_start_new).value
+	#
+end
+times_prev[particles-parts[1]+1] = mean(times_prev_local)
+errs_prev[particles-parts[1]+1] = std(times_prev_local)
 
+times_new[particles-parts[1]+1] = mean(times_new_local)
+errs_new[particles-parts[1]+1] = std(times_new_local)
 
-
-
-
-
+end
+errorbar(parts,times_new,yerr=[errs_new,errs_new],fmt="-o",label="New")
+errorbar(parts,times_prev,yerr=[errs_prev,errs_prev],fmt="-o",label="Prev")
+legend()
+=#
+#figure()
+#plot(parts,times_new./times_prev)
+#title("Speed-up Factor: Acc Matrix w/ Prev Compressed Data")
+power_start = 4.0
+power_end = 6.0
+powers = [power_start + i*(power_end-power_start)/10 for i in 0:10]
+howclose = [0.0 for i in 0:10]
+for i in 1:length(powers)
+	pow = powers[i]
+	rez = (times_new./times_prev)./(parts.^pow)
+	perc_error = 100*std(rez)/mean(rez)
+	howclose[i] = perc_error
+end
+plot(powers,howclose)
 
 
 "fin"

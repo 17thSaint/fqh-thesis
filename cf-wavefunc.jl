@@ -484,57 +484,45 @@ function prob_wavefunc_laughlin(complex_config, m)
 	return full
 end
 
-function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any}},all_ji_acc_sets::Vector)
-	#sum_parts = [0 for i in 1:order-1]
-	order::Int = length(keys(allowed_vals_dict))
-	parts_count::Int = length(allowed_vals_dict["s1"]) + 1
+function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any}},all_ji_acc_sets)
+	order::Int64 = length(keys(allowed_vals_dict))
 	if loop_level == order
-		for i in 1:length(allowed_vals_dict["s$order"])
-			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
-			
-			#=
-			sum_parts = [0 for k in 1:order]
-			for k in 1:order-1
-				next = k+1
-				sum_parts[k] = deleteat!(allowed_vals_dict["s$k"].+(1-1),findall(x->x in allowed_vals_dict["s$next"],allowed_vals_dict["s$k"]))[1]
-			end
-			sum_parts[end] = deleteat!(allowed_vals_dict["s$order"].+(1-1),findall(x->x in ji_allowed_vals,allowed_vals_dict["s$order"]))[1]
-			println(i,", Sum Parts: $sum_parts","Jis: ",ji_allowed_vals)
-			=#
-			
-			append!(all_ji_acc_sets,[ji_allowed_vals])
+		local_ji_acc_sets = []
+		full_ji_sets = []
+		for i in 1:length(allowed_vals_dict["s$order"][2])
+			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"][2].+1 .-1,i)
+			append!(full_ji_sets,[[allowed_vals_dict["s$order"][1],ji_allowed_vals]])
 		end
+		local_ji_acc_sets = compress_acc_set(full_ji_sets)
+		append!(all_ji_acc_sets,local_ji_acc_sets)
 		
 		return 
 	
 	end
 	next_level::Int = loop_level + 1
-	for i in 1:length(allowed_vals_dict["s$loop_level"])
-		#sum_part = allowed_vals_dict["s$loop_level"][i]
-		previous_count = allowed_vals_dict["s$loop_level"]
-		allowed_vals_dict["s$next_level"] = deleteat!(1 .+ allowed_vals_dict["s$loop_level"] .- 1,i)
+	for i in 1:length(allowed_vals_dict["s$loop_level"][2])
+		previous_count = allowed_vals_dict["s$loop_level"][1]
+		allowed_vals_dict["s$next_level"] = [previous_count,deleteat!(1 .+ allowed_vals_dict["s$loop_level"][2] .- 1,i)]
 		nested_loop(loop_level + 1,allowed_vals_dict,all_ji_acc_sets)
 	end
-	
 end
 
 function get_all_acc_sets(order::Int64,part::Int64,parts_count::Int64,begin_input=[false,0,[0]])
 	starting_allowed_vals_dict::Dict{String,Vector{Any}} = Dict([("s$i",[]) for i in 1:order])
 	next_order = begin_input[2] + 1
-	all_ji_acc_sets::Vector{Vector{Int64}} = []
+	all_ji_acc_sets::Vector = []
 	if !begin_input[1]
-		starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
+		starting_allowed_vals_dict["s1"] = [1,deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)]
 		nested_loop(next_order,starting_allowed_vals_dict,all_ji_acc_sets)
 	else
+		#println(begin_input[3])
 		for i in 1:length(begin_input[3])
 			starting_allowed_vals_dict["s$next_order"] = begin_input[3][i]
 			nested_loop(next_order,starting_allowed_vals_dict,all_ji_acc_sets)
 		end
 	end
-	
 	return all_ji_acc_sets
 end
-
 
 function get_allowed_sets_matrix(num_parts::Int64,use_prev=false)
 	allowed_sets_matrix = Matrix{Any}(undef,num_parts,num_parts-1)
@@ -546,8 +534,9 @@ function get_allowed_sets_matrix(num_parts::Int64,use_prev=false)
 			else
 				prev_data_input = [false,0,[0]]
 			end
-			og_all_sets = get_all_acc_sets(which_order,which_part,num_parts,prev_data_input)
-			allowed_sets_matrix[which_part,which_order] = compress_acc_set(num_parts,og_all_sets)
+			#println("Element: $which_part $which_order")
+			og_all_sets = compress_acc_set(get_all_acc_sets(which_order,which_part,num_parts,prev_data_input))
+			allowed_sets_matrix[which_part,which_order] = og_all_sets
 		end
 	end
 	
@@ -564,7 +553,7 @@ function write_new_acc_matrix(num_parts::Int64,folder::String)
 				prev_data_input = [false,0,[0]]
 			end
 			og_all_sets = get_all_acc_sets(which_order,which_part,num_parts,prev_data_input)
-			acc_element = compress_acc_set(num_parts,og_all_sets)
+			acc_element = compress_acc_set(og_all_sets)
 			matrix_acc_element = make_vecovecs_matrix(acc_element)
 			write_acc_matrix_data(folder,num_parts,which_part,which_order,matrix_acc_element)
 		end

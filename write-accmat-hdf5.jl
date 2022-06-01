@@ -116,13 +116,28 @@ function get_full_acc_matrix(num_parts::Int64,which="compressed")
 	return acc_mat
 end
 
-function compress_acc_set(parts_count::Int64,acc_set::Vector{Vector{Int64}})
-	new_acc_set = [ [1,[1 for j in 1:length(acc_set[1])]] for i in 1:binomial(parts_count-1,length(acc_set[1]))]
-	index = 1
-	for i in unique(acc_set)
-		found = findall(x->x==i,acc_set)
-		new_acc_set[index] = [length(found),i]
-		index += 1
+function compress_acc_set(acc_set::Vector{Any},og_form=false)
+	new_acc_set::Vector{} = []
+	if og_form
+		#println("OG Form")
+		#new_acc_set = [ [1,[1 for j in 1:length(acc_set[1])]] for i in 1:binomial(parts_count-1,length(acc_set[1]))]
+		#index = 1
+		for i in unique(acc_set)
+			found = findall(x->x==i,acc_set)
+			append!(new_acc_set,[[length(found),i]])
+			#index += 1
+		end
+	else
+		all_sets = [acc_set[j][2] for j in 1:length(acc_set)]
+		if length(unique(all_sets)) == length(all_sets)
+			#println("Can't Compress")
+			return acc_set
+		end
+		for i in unique(all_sets)
+			found = findall(x->x==i,all_sets)
+			count = sum([acc_set[found[j]][1] for j in 1:length(found)])
+			append!(new_acc_set,[[count,i]])
+		end
 	end
 	return new_acc_set
 end
