@@ -488,7 +488,6 @@ function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any
 	#sum_parts = [0 for i in 1:order-1]
 	order::Int = length(keys(allowed_vals_dict))
 	parts_count::Int = length(allowed_vals_dict["s1"]) + 1
-	#display(allowed_vals_dict["s$loop_level"])
 	if loop_level == order
 		for i in 1:length(allowed_vals_dict["s$order"])
 			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
@@ -512,8 +511,7 @@ function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any
 	next_level::Int = loop_level + 1
 	for i in 1:length(allowed_vals_dict["s$loop_level"])
 		#sum_part = allowed_vals_dict["s$loop_level"][i]
-		#println(loop_level,", ",i)
-		#display(allowed_vals_dict["s$loop_level"])
+		previous_count = allowed_vals_dict["s$loop_level"]
 		allowed_vals_dict["s$next_level"] = deleteat!(1 .+ allowed_vals_dict["s$loop_level"] .- 1,i)
 		nested_loop(loop_level + 1,allowed_vals_dict,all_ji_acc_sets)
 	end
@@ -538,11 +536,18 @@ function get_all_acc_sets(order::Int64,part::Int64,parts_count::Int64,begin_inpu
 end
 
 
-function get_allowed_sets_matrix(num_parts::Int64)
+function get_allowed_sets_matrix(num_parts::Int64,use_prev=false)
 	allowed_sets_matrix = Matrix{Any}(undef,num_parts,num_parts-1)
+	og_all_sets = []
 	for which_part in 1:num_parts
 		for which_order in 1:num_parts-1
-			allowed_sets_matrix[which_part,which_order] = compress_acc_set(num_parts,get_all_acc_sets(which_order,which_part,num_parts))
+			if which_order > 1 && use_prev
+				prev_data_input = [true,which_order-1,og_all_sets]
+			else
+				prev_data_input = [false,0,[0]]
+			end
+			og_all_sets = get_all_acc_sets(which_order,which_part,num_parts,prev_data_input)
+			allowed_sets_matrix[which_part,which_order] = compress_acc_set(num_parts,og_all_sets)
 		end
 	end
 	
@@ -553,7 +558,13 @@ function write_new_acc_matrix(num_parts::Int64,folder::String)
 	for which_part in 1:num_parts
 		for which_order in 1:num_parts-1
 			println("Part $which_part, Order $which_order")
-			acc_element = compress_acc_set(num_parts,get_all_acc_sets(which_order,which_part,num_parts))
+			if which_order > 1 && use_prev
+				prev_data_input = [true,which_order-1,og_all_sets]
+			else
+				prev_data_input = [false,0,[0]]
+			end
+			og_all_sets = get_all_acc_sets(which_order,which_part,num_parts,prev_data_input)
+			acc_element = compress_acc_set(num_parts,og_all_sets)
 			matrix_acc_element = make_vecovecs_matrix(acc_element)
 			write_acc_matrix_data(folder,num_parts,which_part,which_order,matrix_acc_element)
 		end
