@@ -1,5 +1,5 @@
 #import Pkg; Pkg.add("LinearAlgebra")
-using LinearAlgebra
+using LinearAlgebra,Dates
 
 include("write-accmat-hdf5.jl")
 
@@ -543,11 +543,12 @@ function get_allowed_sets_matrix(num_parts::Int64,use_prev=false)
 	return allowed_sets_matrix
 end
 
-function write_new_acc_matrix(num_parts::Int64,folder::String)
-	for which_part in 1:num_parts
+function write_new_acc_matrix(num_parts::Int64,top_part::Int64,folder::String)
+	og_all_sets = []
+	for which_part in top_part:top_part
 		for which_order in 1:num_parts-1
 			println("Part $which_part, Order $which_order")
-			if which_order > 1 && use_prev
+			if which_order > 1
 				prev_data_input = [true,which_order-1,og_all_sets]
 			else
 				prev_data_input = [false,0,[0]]
@@ -555,11 +556,16 @@ function write_new_acc_matrix(num_parts::Int64,folder::String)
 			og_all_sets = get_all_acc_sets(which_order,which_part,num_parts,prev_data_input)
 			acc_element = compress_acc_set(og_all_sets)
 			matrix_acc_element = make_vecovecs_matrix(acc_element)
-			write_acc_matrix_data(folder,num_parts,which_part,which_order,matrix_acc_element)
+			write_acc_column_data(folder,num_parts,which_part,which_order,matrix_acc_element)
 		end
 	end
 end
-
+#=
+particles = 14
+Threads.@threads for i in 1:particles
+	write_new_acc_matrix(particles,i,"NA")	
+end
+=#
 function get_nested_logadd(loop_level::Int64,all_vals::Vector{ComplexF64},result::ComplexF64)
 	if loop_level == 1
 		#println(result,", ",loop_level)
@@ -584,16 +590,15 @@ function split_nested_logadd(all_vals::Vector{ComplexF64})
 	return Complex(result_allnests)
 end
 
-function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,acc_sets_column::Vector{Any},log_form=false)
+function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,all_acc_sets::Vector{Vector{Any}},log_form=false)
 	parts_count::Int64 = length(config)
 	result::ComplexF64 = 0.0+im*0.0
-	all_acc_sets::Vector{Any} = acc_sets_column[part]
 	if !log_form
 		all_jis::Vector{ComplexF64} = [all_acc_sets[i][1]*get_Jis(config,part,[true,all_acc_sets[i][2]]) for i in 1:length(all_acc_sets)]
 		result = sum(all_jis)
 	else
 		all_jis = [get_logJi(config,part,[true,all_acc_sets[i][2]]) + log(all_acc_sets[i][1]) for i in 1:length(all_acc_sets)]
-		#println(length(all_jis))
+
 		if any(isinf.(all_jis))
 			result = -Inf
 		else
@@ -605,8 +610,62 @@ function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,acc_sets_column
 		end
 	end
 	
-	return result
+	return result,all_jis
 end
+
+function get_next_deriv_Ji_fromprev(config::Vector{ComplexF64},part::Int64,prev_jis,prev_acc_sets,curr_acc_sets)
+	old_core_ji = prev_jis .- [log(prev_acc_sets[i][1]) for i in 1:length(prev_acc_sets)]
+	new_jis = [0.0+im*0.0 for i in 1:length(curr_acc_sets)]
+	possible_sets = [prev_acc_sets[j][2] for j in 1:length(prev_acc_sets)]
+	for i in 1:length(curr_acc_sets)
+		val = findfirst(x->issubset(curr_acc_sets[i][2],x),possible_sets)
+		this_set = possible_sets[val] .+ 1 .- 1
+		for j in 1:length(possible_sets[val]) - 1
+			deleteat!(this_set,this_set.==curr_acc_sets[i][2][j])
+		end
+		new_jis[i] = old_core_ji[val] - log(config[part] - config[this_set[1]]) + log(curr_acc_sets[i][1])
+	end
+	
+	if any(isinf.(new_jis))
+		result = -Inf
+	else
+		if length(new_jis) > 50000
+			result = split_nested_logadd(new_jis)
+		else
+			result = get_nested_logadd(length(new_jis),new_jis,new_jis[end]+1-1)
+		end
+	end
+	
+	return result,new_jis
+end
+
+particles = 12
+prev = get_full_acc_matrix(particles)[1,:]
+acc_sets_row = get_full_acc_matrix(particles)[1,:]
+con = start_rand_config(particles,1,1)
+#prevs = get_nth_deriv_Ji(con,1,prev,true)
+#prev_j = prevs[2]
+#guess = get_next_deriv_Ji_fromprev(con,1,prev_j,prev,curr)
+#actual = get_nth_deriv_Ji(con,1,curr,true)
+#println(guess[1] - actual[1])
+
+get_nth_deriv_Ji(con,1,acc_sets_row[1])
+start_reg = now()
+[get_nth_deriv_Ji(con,1,acc_sets_row[i])[1] for i in 1:particles-2]
+end_reg = now()
+reg_time = (end_reg - start_reg).value
+
+rez = [0.0+im*0.0 for i in 1:particles-2]
+start_prev = now()
+global prev_jis = get_nth_deriv_Ji(con,1,acc_sets_row[1])[2]
+for i in 2:particles-2
+	here = get_next_deriv_Ji_fromprev(con,1,prev_jis,acc_sets_row[i-1],acc_sets_row[i])
+	rez[i] = here[1]
+	global prev_jis = here[2]
+end
+end_prev = now()
+prev_time = (end_prev - start_prev).value
+println("Reg: ",reg_time,", Prev: ",prev_time)
 
 function get_pascals_triangle(n::Int64)
 	n == 0 && return [],[0]
@@ -619,13 +678,13 @@ function get_pascals_triangle(n::Int64)
 	return t,folded
 end
 
-function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_sets_matrix::Matrix{Any},pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
+function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_sets_row::Vector{Any},pascals_row::Vector{Int64},deriv_orders::Vector{Vector{Int64}},qpart=[0,[0]],log_form=false)
 	lstar::Float64 = sqrt(2*1*1-1)
 	qpart_shift::Int64 = qpart[1]
 	if !log_form
 		if row >= qpart_shift + 1
 			jis::Vector{ComplexF64} = [get_Jis(config,part)]
-			append!(jis,[get_nth_deriv_Ji(config,part,acc_sets_matrix[:,i]) for i in 1:row-1])
+			append!(jis,[get_nth_deriv_Ji(config,part,acc_sets_row[i]) for i in 1:row-1])
 			#string_result = join([string(pascals_row[i],"J(",deriv_orders[i][1]-1,"')J(",deriv_orders[i][2]-1,"')") for i in 1:length(pascals_row)],"+")
 			indiv_terms::Vector{ComplexF64} = [pascals_row[i]*jis[deriv_orders[i][1]]*jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]
 			result::ComplexF64 = sum(indiv_terms)
@@ -642,8 +701,10 @@ function get_rf_elem_proj(config::Vector{ComplexF64},part::Int64,row::Int64,acc_
 	else
 		if row >= qpart_shift + 1
 			jis = [get_logJi(config,part)]
-			append!(jis,[get_nth_deriv_Ji(config,part,acc_sets_matrix[:,i],log_form) for i in 1:row-1])
+			append!(jis,[get_nth_deriv_Ji(config,part,acc_sets_row[i],log_form) for i in 1:row-1])
+			#sleep(1.0)
 			indiv_terms = [log(pascals_row[i]) + jis[deriv_orders[i][1]] + jis[deriv_orders[i][2]] for i in 1:length(pascals_row)]  # get rid of for loop here
+			#sleep(1.0)
 			if any(isinf.(indiv_terms))
 				result = -Inf
 			else
@@ -705,7 +766,7 @@ function get_rf_wavefunc(config::Vector{ComplexF64},acc_sets_matrix::Matrix{Any}
 		end
 		#
 		for j in 1:num_parts
-			full_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix,pascal_row,deriv_orders,qpart,log_form)
+			full_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix[j,:],pascal_row,deriv_orders,qpart,log_form)
 			#string_matrix[i,j] = get_rf_elem_proj(config,j,i,acc_sets_matrix,pascal_row,deriv_orders,qpart,log_form)
 		end
 	end
@@ -717,7 +778,6 @@ function get_rf_wavefunc(config::Vector{ComplexF64},acc_sets_matrix::Matrix{Any}
 		mat_det = get_log_det(full_matrix)[1]
 		wavefunc += mat_det
 	end
-	#
 	return wavefunc#, full_matrix
 end
 
