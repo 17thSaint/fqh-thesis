@@ -488,6 +488,7 @@ function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any
 	#sum_parts = [0 for i in 1:order-1]
 	order::Int = length(keys(allowed_vals_dict))
 	parts_count::Int = length(allowed_vals_dict["s1"]) + 1
+	#display(allowed_vals_dict["s$loop_level"])
 	if loop_level == order
 		for i in 1:length(allowed_vals_dict["s$order"])
 			ji_allowed_vals = deleteat!(allowed_vals_dict["s$order"].+(1-1),i)
@@ -510,21 +511,32 @@ function nested_loop(loop_level::Int64,allowed_vals_dict::Dict{String,Vector{Any
 	end
 	next_level::Int = loop_level + 1
 	for i in 1:length(allowed_vals_dict["s$loop_level"])
-		sum_part = allowed_vals_dict["s$loop_level"][i]
-		allowed_vals_dict["s$next_level"] = deleteat!(allowed_vals_dict["s$loop_level"].+(1-1),i)
+		#sum_part = allowed_vals_dict["s$loop_level"][i]
+		#println(loop_level,", ",i)
+		#display(allowed_vals_dict["s$loop_level"])
+		allowed_vals_dict["s$next_level"] = deleteat!(1 .+ allowed_vals_dict["s$loop_level"] .- 1,i)
 		nested_loop(loop_level + 1,allowed_vals_dict,all_ji_acc_sets)
 	end
 	
 end
 
-function get_all_acc_sets(order::Int64,part::Int64,parts_count::Int64)
+function get_all_acc_sets(order::Int64,part::Int64,parts_count::Int64,begin_input=[false,0,[0]])
 	starting_allowed_vals_dict::Dict{String,Vector{Any}} = Dict([("s$i",[]) for i in 1:order])
-	starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
-	
+	next_order = begin_input[2] + 1
 	all_ji_acc_sets::Vector{Vector{Int64}} = []
-	nested_loop(1,starting_allowed_vals_dict,all_ji_acc_sets)
+	if !begin_input[1]
+		starting_allowed_vals_dict["s1"] = deleteat!([i for i in 1:parts_count],[i for i in 1:parts_count] .== part)
+		nested_loop(next_order,starting_allowed_vals_dict,all_ji_acc_sets)
+	else
+		for i in 1:length(begin_input[3])
+			starting_allowed_vals_dict["s$next_order"] = begin_input[3][i]
+			nested_loop(next_order,starting_allowed_vals_dict,all_ji_acc_sets)
+		end
+	end
+	
 	return all_ji_acc_sets
 end
+
 
 function get_allowed_sets_matrix(num_parts::Int64)
 	allowed_sets_matrix = Matrix{Any}(undef,num_parts,num_parts-1)
