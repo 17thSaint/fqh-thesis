@@ -613,59 +613,6 @@ function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,all_acc_sets::V
 	return result,all_jis
 end
 
-function get_next_deriv_Ji_fromprev(config::Vector{ComplexF64},part::Int64,prev_jis,prev_acc_sets,curr_acc_sets)
-	old_core_ji = prev_jis .- [log(prev_acc_sets[i][1]) for i in 1:length(prev_acc_sets)]
-	new_jis = [0.0+im*0.0 for i in 1:length(curr_acc_sets)]
-	possible_sets = [prev_acc_sets[j][2] for j in 1:length(prev_acc_sets)]
-	for i in 1:length(curr_acc_sets)
-		val = findfirst(x->issubset(curr_acc_sets[i][2],x),possible_sets)
-		this_set = possible_sets[val] .+ 1 .- 1
-		for j in 1:length(possible_sets[val]) - 1
-			deleteat!(this_set,this_set.==curr_acc_sets[i][2][j])
-		end
-		new_jis[i] = old_core_ji[val] - log(config[part] - config[this_set[1]]) + log(curr_acc_sets[i][1])
-	end
-	
-	if any(isinf.(new_jis))
-		result = -Inf
-	else
-		if length(new_jis) > 50000
-			result = split_nested_logadd(new_jis)
-		else
-			result = get_nested_logadd(length(new_jis),new_jis,new_jis[end]+1-1)
-		end
-	end
-	
-	return result,new_jis
-end
-
-particles = 12
-prev = get_full_acc_matrix(particles)[1,:]
-acc_sets_row = get_full_acc_matrix(particles)[1,:]
-con = start_rand_config(particles,1,1)
-#prevs = get_nth_deriv_Ji(con,1,prev,true)
-#prev_j = prevs[2]
-#guess = get_next_deriv_Ji_fromprev(con,1,prev_j,prev,curr)
-#actual = get_nth_deriv_Ji(con,1,curr,true)
-#println(guess[1] - actual[1])
-
-get_nth_deriv_Ji(con,1,acc_sets_row[1])
-start_reg = now()
-[get_nth_deriv_Ji(con,1,acc_sets_row[i])[1] for i in 1:particles-2]
-end_reg = now()
-reg_time = (end_reg - start_reg).value
-
-rez = [0.0+im*0.0 for i in 1:particles-2]
-start_prev = now()
-global prev_jis = get_nth_deriv_Ji(con,1,acc_sets_row[1])[2]
-for i in 2:particles-2
-	here = get_next_deriv_Ji_fromprev(con,1,prev_jis,acc_sets_row[i-1],acc_sets_row[i])
-	rez[i] = here[1]
-	global prev_jis = here[2]
-end
-end_prev = now()
-prev_time = (end_prev - start_prev).value
-println("Reg: ",reg_time,", Prev: ",prev_time)
 
 function get_pascals_triangle(n::Int64)
 	n == 0 && return [],[0]

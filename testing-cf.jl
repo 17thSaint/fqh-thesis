@@ -188,7 +188,7 @@ end
 
 
 if true
-allowed_mat = get_allowed_sets_matrix(particles)
+allowed_mat = get_full_acc_matrix(particles)
 full_derivs = get_deriv_orders_matrix(particles)
 	
 full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
@@ -196,8 +196,8 @@ full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
 	# testing element of matrix same for reg and log
 	for j in 1:particles
 	for i in 1:particles
-	log_element_rf = get_rf_elem_proj(coords3,i,j,allowed_mat,full_pasc_tri[j],full_derivs[j],[0,[0]],true)
-	reg_element_rf = get_rf_elem_proj(coords3,i,j,allowed_mat,full_pasc_tri[j],full_derivs[j])
+	log_element_rf = get_rf_elem_proj(coords3,i,j,allowed_mat[i,:],full_pasc_tri[j],full_derivs[j],[0,[0]],true)
+	reg_element_rf = get_rf_elem_proj(coords3,i,j,allowed_mat[i,:],full_pasc_tri[j],full_derivs[j])
 	@test isapprox(reg_element_rf/exp(log_element_rf),1.0,atol=10^(-2))
 	end
 	end
@@ -236,23 +236,23 @@ if true
 @testset "ji-derivs" begin
 	local_config = 10 .*(rand(particles) + im.*rand(particles))
 	part = 1
-	allowed_mat = get_allowed_sets_matrix(particles)
+	allowed_mat = get_full_acc_matrix(particles)
 	allowed_column_order1 = allowed_mat[:,1]
 	allowed_column_order2 = allowed_mat[:,2]
 	
-	nest_deriv_1 = get_nth_deriv_Ji(local_config,part,allowed_column_order1)
+	nest_deriv_1 = get_nth_deriv_Ji(local_config,part,allowed_column_order1[part])
 	og_deriv_1 = get_Jiprime(local_config,part,1)
 	@test isapprox(og_deriv_1,nest_deriv_1,atol=sqrt(eps()))
 	
-	nest_deriv_2 = get_nth_deriv_Ji(local_config,part,allowed_column_order2)
+	nest_deriv_2 = get_nth_deriv_Ji(local_config,part,allowed_column_order2[part])
 	og_deriv_2 = get_Ji2prime(local_config,part,1)
 	@test isapprox(og_deriv_2,nest_deriv_2,atol=sqrt(eps()))
 	
-	nest_log_deriv_1 = get_nth_deriv_Ji(local_config,part,allowed_column_order1,true)
+	nest_log_deriv_1 = get_nth_deriv_Ji(local_config,part,allowed_column_order1[part],true)
 	og_log_deriv_1 = get_logJiprime(local_config,part,1)
 	@test isapprox(og_log_deriv_1,nest_log_deriv_1,atol=10^-3)
 	
-	nest_log_deriv_2 = get_nth_deriv_Ji(local_config,part,allowed_column_order2,true)
+	nest_log_deriv_2 = get_nth_deriv_Ji(local_config,part,allowed_column_order2[part],true)
 	og_log_deriv_2 = get_logJi2prime(local_config,part,1)
 	@test isapprox(og_log_deriv_2,nest_log_deriv_2,atol=10^-3)
 end;

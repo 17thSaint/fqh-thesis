@@ -1,9 +1,9 @@
 #import Pkg; Pkg.add("Statistics")
-using Statistics
+using Statistics,PyPlot
 
 include("cf-wavefunc.jl")
 include("write-accmat-hdf5.jl")
-include("berry-cf.jl")
+#include("berry-cf.jl")
 ARGS = "F"
 include("read-CF-data.jl")
 
@@ -86,7 +86,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	low_vers = lowercase(vers)
 	running_config = start_rand_config(num_parts,n,p)
 	start_count = 0
-	output_file_count = 100
+	output_file_count = 10
 	if steps/output_file_count < 1
 		steps_per_file = 1
 	else
@@ -126,7 +126,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	wavefunc = 0.0+im*0.0
 	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = 0#Int(0.0001*steps)
+	therm_time = 0#50#Int(0.0001*steps)
 	collection_time = steps
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
@@ -179,9 +179,9 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		if i%(samp_freq*steps_per_file) == 0
 			number += 1
 			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
-			#folderhere = lowercase(vers)
-			#write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
-			write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+			folderhere = lowercase(vers)
+			write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+			#write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
 		#
 	end
@@ -191,38 +191,44 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	return acc_rate,time_config,time_wavefunc
 end
 
-particles = 10
+particles = 12
+flux_type = "RFA"
+which_np = 2
 log_form = true
 #
-mc_steps = 100000
+mc_steps = 1
 
 np_vals = [[1,1],[1,2],[2,1]]
-which_np = 2
 n,p = np_vals[which_np]
-fill_denom = 2*n*p - 1
-filling = 1/3#n/(2*p*n-1)
+if flux_type == "RFA"
+	fill_denom = 2*n*p - 1
+	filling = n/(2*p*n-1)
+	allowed_sets_matrix = get_full_acc_matrix(particles)
+	full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
+	full_derivs = get_deriv_orders_matrix(particles)
+elseif flux_type == "CF"
+	fill_denom = 2*n*p + 1
+	filling = n/(2*p*n+1)
+end
 rm = sqrt(2*particles/filling)
 step_size = rm/3.0#0.4 + 0.175*rm
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
-#x_rads = [0.3*rm + j*0.5*rm/10 for j in 0:9]
-
-allowed_sets_matrix = get_full_acc_matrix(particles)
-full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
-full_derivs = get_deriv_orders_matrix(particles)
-k = parse(Int64,ARGS[2])
-#println("At Radius #$k")
+k = 4
 rad_choice = k
 x_rad = x_rads[rad_choice]
 qpart_choices = [[0,[0.0]],[1,[x_rad+0.0*im]],[2,[x_rad+0.0*rm,0.0+im*0.0]]]
 qpart_selected = 2#parse(Int64,ARGS[2])
 qpart = qpart_choices[qpart_selected]
-flux_type = "RFA"
-rezz = main(flux_type,n,p,mc_steps,particles,step_size,k,qpart,log_form,allowed_sets_matrix,full_pasc_tri,full_derivs)
+#rezz = main(flux_type,n,p,mc_steps,particles,step_size,k,qpart,log_form,allowed_sets_matrix,full_pasc_tri,full_derivs)
+
+
+this_config = start_rand_config(particles,1,1)
+result = get_nth_deriv_Ji(this_config,particles-2,allowed_sets_matrix[particles-2,10],log_form)
 
 #compl = collect(Iterators.flatten([rezz[2][i,:] for i in 1:particles]))
 #figure()
 #hist2D(real.(compl),-imag.(compl),bins=100)
 
-# as the qpart moves farther out, the other particles localized more strongly at the edge
+
 
 "fin"

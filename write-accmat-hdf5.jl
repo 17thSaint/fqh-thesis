@@ -1,7 +1,7 @@
 #import Pkg; Pkg.add("HDF5")
 using HDF5
 
-function make_vecovecs_matrix(given_data::Vector{Vector{Any}})
+function make_vecovecs_matrix(given_data::Vector{Any})
 	matrix_version::Matrix{Int64} = fill(0,(length(given_data),length(given_data[1][2])+1))
 	for i in 1:length(given_data)
 		flat_given_data = collect(Iterators.flatten(given_data[i]))
@@ -74,6 +74,45 @@ function write_acc_matrix_data(folder::String,particles::Int64,part::Int64,order
 		cd("..")
 		cd("Codes")
 	end
+end
+
+function write_acc_column_data(folder::String,particles::Int64,part::Int64,order::Int64,data::Matrix{Int64})
+	if folder != "NA"
+		cd("..")
+		cd("$folder")
+	end
+	if !isfile("AccMat-parts-$particles-compressed-part-$part.hdf5")
+		println("Making New Data File for N=$particles")
+		binary_file = h5open("AccMat-parts-$particles-compressed-part-$part.hdf5","w")
+		create_group(binary_file,"part-$part")
+		part_data = binary_file["part-$part"]
+		part_data["ord-$order"] = data
+	else
+		binary_file = h5open("AccMat-parts-$particles-compressed-part-$part.hdf5","cw")
+		part_data = binary_file["part-$part"]
+		part_data["ord-$order"] = data
+	end
+	close(binary_file)
+	if folder != "NA"
+		cd("..")
+		cd("Codes")
+	end
+end
+
+function write_comb_acc_matrix_data(particles::Int64)
+	full_file = h5open("AccMat-parts-$particles-compressed.hdf5","w")
+	for i in 1:particles
+		create_group(full_file,"part-$i")
+		part_data = full_file["part-$i"]
+		column_file = h5open("AccMat-parts-$particles-compressed-part-$i.hdf5","r")
+		for j in 1:particles-1
+			order = j
+			data = read(column_file["part-$i"])["ord-$order"]
+			part_data["ord-$order"] = data
+		end
+		close(column_file)
+	end
+	close(full_file)
 end
 
 function read_acc_matrix_data(folder::String,particles::Int64,part,order,which)
