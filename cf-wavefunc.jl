@@ -543,9 +543,16 @@ function get_allowed_sets_matrix(num_parts::Int64,use_prev=false)
 	return allowed_sets_matrix
 end
 
-function write_new_acc_matrix(num_parts::Int64,top_part::Int64,folder::String)
+function write_new_acc_matrix(num_parts::Int64,folder::String,column_bool=false,chosen_part=1)
 	og_all_sets = []
-	for which_part in top_part:top_part
+	if column_bool
+		start_part = chosen_part
+		end_part = chosen_part
+	else
+		start_part = 1
+		end_part = num_parts
+	end
+	for which_part in start_part:end_part
 		for which_order in 1:num_parts-1
 			println("Part $which_part, Order $which_order")
 			if which_order > 1
@@ -556,16 +563,15 @@ function write_new_acc_matrix(num_parts::Int64,top_part::Int64,folder::String)
 			og_all_sets = get_all_acc_sets(which_order,which_part,num_parts,prev_data_input)
 			acc_element = compress_acc_set(og_all_sets)
 			matrix_acc_element = make_vecovecs_matrix(acc_element)
-			write_acc_column_data(folder,num_parts,which_part,which_order,matrix_acc_element)
+			write_acc_matrix_data(folder,num_parts,which_part,which_order,matrix_acc_element,column_bool)
 		end
 	end
 end
-#=
-particles = 14
-Threads.@threads for i in 1:particles
-	write_new_acc_matrix(particles,i,"NA")	
-end
-=#
+#
+particles = parse(Int64,ARGS[1])
+i = parse(Int64,ARGS[2])
+write_new_acc_matrix(particles,"acc-matrix-data",true,i)
+#
 function get_nested_logadd(loop_level::Int64,all_vals::Vector{ComplexF64},result::ComplexF64)
 	if loop_level == 1
 		#println(result,", ",loop_level)
@@ -610,7 +616,7 @@ function get_nth_deriv_Ji(config::Vector{ComplexF64},part::Int64,all_acc_sets::V
 		end
 	end
 	
-	return result,all_jis
+	return result
 end
 
 

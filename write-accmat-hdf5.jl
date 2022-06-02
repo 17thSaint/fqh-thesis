@@ -51,55 +51,44 @@ function rewrite_acc_data(particles::Int64)
 	cd("Codes")
 end
 
-function write_acc_matrix_data(folder::String,particles::Int64,part::Int64,order::Int64,data::Matrix{Int64})
+function write_acc_matrix_data(folder::String,particles::Int64,part::Int64,order::Int64,data::Matrix{Int64},column_bool=false)
 	if folder != "NA"
-		cd("..")
+		#cd("..")
 		cd("$folder")
 	end
-	if !isfile("AccMat-parts-$particles-compressed.hdf5")
+	if column_bool
+		file_name = "AccMat-parts-$particles-compressed-part-$part.hdf5"
+	else
+		file_name = "AccMat-parts-$particles-compressed.hdf5"
+	end
+	if !isfile(file_name)
 		println("Making New Data File for N=$particles")
-		binary_file = h5open("AccMat-parts-$particles-compressed.hdf5","w")
-		for i in 1:particles
-			create_group(binary_file,"part-$i")
+		binary_file = h5open(file_name,"w")
+		if column_bool
+			create_group(binary_file,"part-$part")
+		else
+			for i in 1:particles
+				create_group(binary_file,"part-$i")
+			end
 		end
 		part_data = binary_file["part-$part"]
 		part_data["ord-$order"] = data
 	else
-		binary_file = h5open("AccMat-parts-$particles-compressed.hdf5","cw")
+		binary_file = h5open(file_name,"cw")
 		part_data = binary_file["part-$part"]
 		part_data["ord-$order"] = data
 	end
 	close(binary_file)
 	if folder != "NA"
 		cd("..")
-		cd("Codes")
+		#cd("Codes")
 	end
 end
 
-function write_acc_column_data(folder::String,particles::Int64,part::Int64,order::Int64,data::Matrix{Int64})
+function write_comb_acc_matrix_data(particles::Int64,folder::String)
 	if folder != "NA"
-		cd("..")
 		cd("$folder")
 	end
-	if !isfile("AccMat-parts-$particles-compressed-part-$part.hdf5")
-		println("Making New Data File for N=$particles")
-		binary_file = h5open("AccMat-parts-$particles-compressed-part-$part.hdf5","w")
-		create_group(binary_file,"part-$part")
-		part_data = binary_file["part-$part"]
-		part_data["ord-$order"] = data
-	else
-		binary_file = h5open("AccMat-parts-$particles-compressed-part-$part.hdf5","cw")
-		part_data = binary_file["part-$part"]
-		part_data["ord-$order"] = data
-	end
-	close(binary_file)
-	if folder != "NA"
-		cd("..")
-		cd("Codes")
-	end
-end
-
-function write_comb_acc_matrix_data(particles::Int64)
 	full_file = h5open("AccMat-parts-$particles-compressed.hdf5","w")
 	for i in 1:particles
 		create_group(full_file,"part-$i")
@@ -113,6 +102,9 @@ function write_comb_acc_matrix_data(particles::Int64)
 		close(column_file)
 	end
 	close(full_file)
+	if folder != "NA"
+		cd("..")
+	end
 end
 
 function read_acc_matrix_data(folder::String,particles::Int64,part,order,which)
