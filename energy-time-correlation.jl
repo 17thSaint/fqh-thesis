@@ -72,7 +72,10 @@ function get_autocorr_length(wavefunc_data,samp_freq)
 	energy = 2 .*real.(wavefunc_data)
 	full_length = length(wavefunc_data)
 	#println("Full Length = $full_length")
-	len = 1000
+	len = full_length
+	if full_length > 1000
+		len = 1000
+	end
 	dts = [1+(i-1)*1 for i in 1:Int(0.1*len)-1]
 	autocorr = [0.0 for i in 1:Int(0.1*len)-1]
 	for i in 1:Int(0.1*len)-1
