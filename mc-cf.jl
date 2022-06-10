@@ -1,5 +1,5 @@
 #import Pkg; Pkg.add("Statistics")
-using Statistics
+using Statistics,PyPlot
 
 include("cf-wavefunc.jl")
 include("write-accmat-hdf5.jl")
@@ -126,7 +126,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	wavefunc = 0.0+im*0.0
 	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = 0#50#Int(0.0001*steps)
+	therm_time = 10#50#Int(0.0001*steps)
 	collection_time = steps
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
@@ -180,7 +180,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			number += 1
 			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
 			folderhere = lowercase(vers)
-			focused_rad_count = 30 + rad_count
+			focused_rad_count = 0 + rad_count
 			write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,focused_rad_count,number+farm*output_file_count,qpart,log_form)
 			#write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
@@ -193,8 +193,9 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 end
 
 particles = 4
-flux_type = "RFA"
-which_np = 2
+cluster_types = [ ["CF",1],["CF",2,["CF",3],["RFA",1],["RFA",2,["RFA",3] ]
+flux_type = cluster_types[parse(Int64,ARGS[2])][1]
+which_np = 1
 log_form = true
 #
 mc_steps = 1000
@@ -208,6 +209,9 @@ if flux_type == "RFA"
 	full_pasc_tri = [get_pascals_triangle(i)[2] for i in 1:particles]
 	full_derivs = get_deriv_orders_matrix(particles)
 elseif flux_type == "CF"
+	allowed_sets_matrix = Matrix{Any}(undef,(0,0))
+	full_pasc_tri = Vector{Vector{Int}}(undef,0)
+	full_derivs = Vector{Vector{Any}}(undef,0)
 	fill_denom = 2*n*p + 1
 	filling = n/(2*p*n+1)
 end
@@ -215,22 +219,18 @@ rm = sqrt(2*particles/filling)
 step_size = rm/3.0#0.4 + 0.175*rm
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 focused_x_rads = [x_rads[3] + j*(x_rads[4]-x_rads[3])/10 for j in 1:10]
-
-for k in 1:10
+k = 4
 rad_choice = k
-x_rad = focused_x_rads[rad_choice]
-qpart_choices = [[0,[0.0]],[1,[x_rad+0.0*im]],[2,[x_rad+0.0*rm,0.0+im*0.0]]]
-qpart_selected = 2#parse(Int64,ARGS[2])
+x_rad = x_rads[rad_choice]
+qpart_choices = [[0,[0.0]],[1,[x_rad+0.0*im]],[2,[x_rad+0.0*rm,-x_rad+im*0.0]]]
+qpart_selected = cluster_types[parse(Int64,ARGS[2])][2]
 qpart = qpart_choices[qpart_selected]
 rezz = main(flux_type,n,p,mc_steps,particles,step_size,rad_choice,qpart,log_form,0,allowed_sets_matrix,full_pasc_tri,full_derivs)
-sleep(2.0)
-end
 
 
-
-#compl = collect(Iterators.flatten([rezz[2][i,:] for i in 1:particles]))
-#figure()
-#hist2D(real.(compl),-imag.(compl),bins=100)
+compl = collect(Iterators.flatten([rezz_cf[2][i,:] for i in 1:particles]))
+figure()
+hist2D(real.(compl),-imag.(compl),bins=50)
 
 
 
