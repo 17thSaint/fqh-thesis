@@ -41,6 +41,25 @@ function write_pos_data_hdf5(folder,vers,mc_steps,particles,n,p,data,rad_count,w
 	println("Data Added, File Closed")
 end
 
+function write_berry(folder,file_name,data)
+	if folder != "NA"
+		cd("..")
+		cd("$folder")
+	end
+	
+	binary_file = h5open(file_name,"cw")
+	alldata = binary_file["all-data"]
+	alldata["berry"] = data
+	close(binary_file)
+	
+	println("Berry Data Added")
+	
+	if folder != "NA"
+            cd("..")
+            cd("Codes")
+        end
+end
+
 function write_comb_CF_hdf5(folder,vers,particles,n,p,data,rad_choice,log_form)
 	println("Starting Data Write")
 	if folder != "NA"
@@ -144,6 +163,7 @@ function read_CF_hdf5(folder,vers,mc_steps,particles,n,p,which,rad_count=1,qpart
 	close(file)
         if folder != "NA"
             cd("..")
+            cd("..")
             cd("Codes")
         end	
 	return full_data
@@ -227,7 +247,7 @@ function find_CF_data(folder,vers,particles,n,p,rad_choice,qpart_count,log_form)
 							which_here = parse(Int,split(separated[end],".")[1])
 							#mcsteps_here = parse(Int,separated[4])
 							mcsteps_here = parse(Int,separated[findall(i->i=="mc",separated)[1] + 1])
-							println(name)
+							#println(name)
 							data_here = read_CF_hdf5("NA",vers,mcsteps_here,parts_here,n_here,p_here,which_here,radcount_here,qpartcount_here,log_form)
 						end
 						append!(all_data,[data_here])
@@ -258,6 +278,7 @@ function find_CF_data(folder,vers,particles,n,p,rad_choice,qpart_count,log_form)
 					mv("$file_name","indiv-comb-$low_vers-data/$new_name",force=false)
 				else
 					new_name = rename_pos_file(file_name)
+					println("Moving $file_name to $new_name")
 					mv("$file_name","indiv-comb-$low_vers-data/$new_name",force=false)
 				end
 			else
@@ -317,15 +338,15 @@ make_new = main(ARGS[1])
 if make_new
 	println("Combining Stuff")
 	log_form_comb = true
-	particles_comb = 10
+	particles_comb = 12
 	vers_comb = "RFA"
 	low_vers_comb = lowercase(vers_comb)
 	np_vals_comb = [[1,1],[1,2],[2,1]]
 	for k in 2:2
 		n_comb,p_comb = np_vals_comb[k]
-		for j in 1:1
+		for j in 1:2
 			qpart_count_comb = j
-			for i in 3:3
+			for i in 4:4
 				rad_choice_comb = i
 				alldats_comb = find_CF_data("$low_vers_comb-data",vers_comb,particles_comb,n_comb,p_comb,rad_choice_comb,qpart_count_comb,log_form_comb)
 				if alldats_comb[2]

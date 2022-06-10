@@ -1,5 +1,5 @@
 #import Pkg; Pkg.add("Statistics")
-using Statistics,PyPlot
+using Statistics
 
 include("cf-wavefunc.jl")
 include("write-accmat-hdf5.jl")
@@ -71,7 +71,7 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 	return "Acceptance Calculation Error"
 end
 
-function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false,allowed_sets_matrix = Matrix{Any}(undef,(0,0)),full_pasc_tri = Vector{Vector{Int}}(undef,0),full_derivs = Vector{Vector{Any}}(undef,0))
+function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false,farm=0,allowed_sets_matrix = Matrix{Any}(undef,(0,0)),full_pasc_tri = Vector{Vector{Int}}(undef,0),full_derivs = Vector{Vector{Any}}(undef,0))
 	#allowed_sets_matrix = Matrix{Vector{Int}}(undef,(0,0))
 	#full_pasc_tri = Vector{Vector{Int}}(undef,0)
 	#full_derivs = Vector{Vector{Any}}(undef,0)
@@ -180,7 +180,8 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			number += 1
 			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
 			folderhere = lowercase(vers)
-			write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
+			focused_rad_count = 30 + rad_count
+			write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,focused_rad_count,number+farm*output_file_count,qpart,log_form)
 			#write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
 		#
@@ -191,12 +192,12 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	return acc_rate,time_config,time_wavefunc
 end
 
-particles = 12
+particles = 4
 flux_type = "RFA"
 which_np = 2
 log_form = true
 #
-mc_steps = 1
+mc_steps = 1000
 
 np_vals = [[1,1],[1,2],[2,1]]
 n,p = np_vals[which_np]
@@ -213,17 +214,19 @@ end
 rm = sqrt(2*particles/filling)
 step_size = rm/3.0#0.4 + 0.175*rm
 x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
-k = 4
+focused_x_rads = [x_rads[3] + j*(x_rads[4]-x_rads[3])/10 for j in 1:10]
+
+for k in 1:10
 rad_choice = k
-x_rad = x_rads[rad_choice]
+x_rad = focused_x_rads[rad_choice]
 qpart_choices = [[0,[0.0]],[1,[x_rad+0.0*im]],[2,[x_rad+0.0*rm,0.0+im*0.0]]]
 qpart_selected = 2#parse(Int64,ARGS[2])
 qpart = qpart_choices[qpart_selected]
-#rezz = main(flux_type,n,p,mc_steps,particles,step_size,k,qpart,log_form,allowed_sets_matrix,full_pasc_tri,full_derivs)
+rezz = main(flux_type,n,p,mc_steps,particles,step_size,rad_choice,qpart,log_form,0,allowed_sets_matrix,full_pasc_tri,full_derivs)
+sleep(2.0)
+end
 
 
-this_config = start_rand_config(particles,1,1)
-result = get_nth_deriv_Ji(this_config,particles-2,allowed_sets_matrix[particles-2,10],log_form)
 
 #compl = collect(Iterators.flatten([rezz[2][i,:] for i in 1:particles]))
 #figure()
