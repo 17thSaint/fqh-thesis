@@ -425,7 +425,7 @@ if make_new
 	println("Combining Stuff")
 	log_form_comb = true
 	berry_comb = true
-	particles_comb = 8
+	particles_comb = 20
 	vers_comb = "CF"
 	low_vers_comb = lowercase(vers_comb)
 	np_vals_comb = [[1,1],[1,2],[2,1]]
@@ -433,7 +433,7 @@ if make_new
 		n_comb,p_comb = np_vals_comb[k]
 		for j in 1:1
 			qpart_count_comb = j
-			for i in [31+l for l in 1:10]
+			for i in [4]
 				rad_choice_comb = i
 				alldats_comb = find_CF_data("$low_vers_comb-data",vers_comb,particles_comb,n_comb,p_comb,rad_choice_comb,qpart_count_comb,log_form_comb,berry_comb)
 				if alldats_comb[2]

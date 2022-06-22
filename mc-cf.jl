@@ -1,5 +1,5 @@
 #import Pkg; Pkg.add("Statistics")
-using Statistics,PyPlot,Dates
+using Statistics
 
 include("cf-wavefunc.jl")
 include("write-accmat-hdf5.jl")
@@ -121,6 +121,14 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		rm = sqrt(2*num_parts/filling)
 		lstar = sqrt(2*p*n-1)
 	end
+	if qpart[1] == 1
+		qpart1_og_location = qpart[2][1] + 0.1 - 0.1
+		qpart_og = [1,[qpart1_og_location]]
+	elseif qpart[1] == 2
+		qpart1_og_location = qpart[2][1] + 0.1 - 0.1
+		qpart2_og_location = qpart[2][2] + 0.1 - 0.1
+		qpart_og = [2,[qpart1_og_location,qpart2_og_location]]
+	end
 	wavefunc = 0.0+im*0.0
 	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
@@ -134,7 +142,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	index = 1
 	number = 0
 	#println("Starting Thermalization")
-	time_start = now()
+	#time_start = now()
 	for i_therm in 1:therm_time
 		#if i_therm%(therm_time*0.05) == 0
 		#	println("Thermalizing:"," ",100*i_therm/therm_time,"%")
@@ -152,7 +160,6 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	end
 	#println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
-		
 		for j in 1:num_parts
 			#println("MC Sample $i, Particle $j")
 			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
@@ -174,15 +181,15 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			local_config_time = time_config[:,index]
 			time_wavefunc[index] = wavefunc
 			if wb
-				time_berry[index] = get_expval(vers,n,p,[qpart,local_config_time,[wavefunc]],1,-0.001,1,log_form)[1]
+				time_berry[index] = get_expval(vers,n,p,[qpart_og,local_config_time,[wavefunc]],1,-0.001,1,log_form)[1]
 			end
 			index += 1
 			#println("Added Data for Sampling Frequency")
 		end
 		#
-		#if i%(collection_time*0.001) == 0
-		#	println("Running $n/$denom:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
-		#end
+		if i%(collection_time*0.01) == 0
+			println("Running $n/$denom:"," ",100*i/collection_time,"%")
+		end
 		#
 		if i%(samp_freq*steps_per_file) == 0
 			number += 1
@@ -192,14 +199,14 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 				data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
 			end
 			folderhere = lowercase(vers)
-			focused_rad_count = 30 + rad_count
+			focused_rad_count = 0 + rad_count
 			write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,focused_rad_count,number+farm*output_file_count,qpart,log_form,wb)
 			#write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
 		#
 	end
-	time_end = now()
-	total_time = (time_end - time_start).value
+	#time_end = now()
+	#total_time = (time_end - time_start).value
 	acc_rate = acc_count/(num_parts*steps)
 	
 	if wb
@@ -209,14 +216,14 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	end
 end
 
-particles = 8
-cluster_types = [ ["CF",1],["CF",2],["CF",3],["RFA",1],["RFA",2],["RFA",3] ]
+particles = 30
+#cluster_types = [ ["CF",1],["CF",2],["CF",3],["RFA",1],["RFA",2],["RFA",3] ]
 flux_type = "CF"#cluster_types[parse(Int64,ARGS[2])][1]
 which_np = 1
 log_form = true
 with_berry = true
 #
-mc_steps = 100
+mc_steps = 10000
 
 np_vals = [[1,1],[1,2],[2,1]]
 n,p = np_vals[which_np]
@@ -237,38 +244,24 @@ rm = sqrt(2*particles/filling)
 step_size = rm/3.0#0.4 + 0.175*rm
 big_x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
 starting_rad = 3
-x_rads = [big_x_rads[starting_rad] + j*(big_x_rads[starting_rad+1]-big_x_rads[starting_rad])/10 for j in 1:10]
-#
-berries = [0.0 for i in 1:10]
-berrors = [0.0 for i in 1:10]
-for rad_choice in 1:10
-#rad_choice = 4
-x_rad = x_rads[rad_choice]
+#x_rads = [big_x_rads[starting_rad] + j*(big_x_rads[starting_rad+1]-big_x_rads[starting_rad])/10 for j in 1:10]
+rad_choice = parse(Int64,ARGS[2])
+x_rad = big_x_rads[rad_choice]
 x_rad_2 = 0.0#-x_rads[rad_choice]
 qpart_choices = [[0,[0.0]],[1,[x_rad+0.0*im]],[2,[x_rad+0.0*rm,x_rad_2+im*0.0]]]
-qpart_selected = 2#cluster_types[parse(Int64,ARGS[2])][2]
+qpart_selected = parse(Int64,ARGS[3])
 qpart = qpart_choices[qpart_selected]
+#times = [0.0 for i in 1:10]
+#for i in 1:10
 rezz = main(flux_type,n,p,mc_steps,particles,step_size,rad_choice,qpart,log_form,0,with_berry,allowed_sets_matrix,full_pasc_tri,full_derivs)
-berries[rad_choice] = mean(rezz[4])
-berrors[rad_choice] = std(rezz[4])
-end
-#
-
-
-if true
-figure()
-errorbar(x_rads,-berries,yerr=[berrors,berrors],fmt="-o",label="1Q")
-plot(x_rads,(x_rads.^2).*(filling/4),label="TH")
-title("Full Berry Phase")
-end
-if false
-interaction_part = berries .+ (x_rads.^2).*(filling/2)
-figure()
-errorbar(x_rads,interaction_part,yerr=[berrors,berrors],fmt="-o",label="2Q")
-plot(x_rads,[filling for i in 1:10],label="TH")
-title("Statistics")
-legend()
-end
+#println("Berry Phase = ",mean(rezz[4])," +/- ",std(rezz[4]))
+#println("$filling, Calced Filling = ",2*mean(rezz[4])/x_rad^2," +/- ",2*std(rezz[4])/x_rad^2)
+#println("Time = ",(rezz[5]/1000)/3600)
+#times[i] = rezz[5]/10000
+#println(times[i])
+#end
+#println(mean(times)," +/- ",std(times))
+#println("Time for 50,000 Samples: ",50000*mean(times)/3600," +/- ",50000*std(times)/3600)
 
 
 #compl = collect(Iterators.flatten([rezz[2][i,:] for i in 1:particles]))

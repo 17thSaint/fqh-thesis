@@ -6,12 +6,7 @@ include("energy-time-correlation.jl")
 
 function get_expval(vers,n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=false,acc_matrix = Matrix{Any}(undef,(0,0)),all_pascal = Vector{Vector{Int}}(undef,0),all_derivs = Vector{Vector{Any}}(undef,0))
 	qpart_data,pos_data_og,wavefunc_data = hdf5_data
-	qpart_og_loc = qpart_data[2][chosen_qpart] + 0.0
-	if qpart_data[1] == 1
-		qpart_og = [1,[qpart_og_loc]]
-	else
-		qpart_og = [2,[0.0+im*0.0,qpart_og_loc]]
-	end
+	
 	if vers == "CF"
 		rm = sqrt(2*size(pos_data_og)[1]*(2*p*n+1)/n)
 	elseif vers == "RFA"
@@ -19,9 +14,13 @@ function get_expval(vers,n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=fa
 	end
 	len = length(wavefunc_data)#size(pos_data_og)[2]
 	single_qpart_location = qpart_data[2][chosen_qpart]
-	qpart_shifted = single_qpart_location*exp(im*dtheta)
+	qpart_shifted_loc = single_qpart_location*exp(im*dtheta)
+	if qpart_data[1] == 1
+		qpart_shifted = [1,[qpart_shifted_loc]]
+	elseif qpart_data[1] == 2
+		qpart_shifted = [2,[qpart_shifted_loc,qpart_data[2][2]]]
+	end
 	#println(qpart_data[2][chosen_qpart])
-	qpart_data[2][chosen_qpart] = qpart_shifted
 	#count_origin = 0
 	#count_two = 0
 	particles = size(pos_data_og)[1]
@@ -76,9 +75,9 @@ function get_expval(vers,n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=fa
 			#println(calced_vals[i])
 			=#
 			if vers == "CF"
-				new_wavefunc = get_wavefunc_fromlog(local_config,n,p,qpart_data)
+				new_wavefunc = get_wavefunc_fromlog(local_config,n,p,qpart_shifted)
 			elseif vers == "RFA"
-				new_wavefunc = get_rf_wavefunc(local_config,acc_matrix,all_pascal,all_derivs,qpart_data,log_form)
+				new_wavefunc = get_rf_wavefunc(local_config,acc_matrix,all_pascal,all_derivs,qpart_shifted,log_form)
 			end
 			#og_wavefunc = get_rf_wavefunc(local_config,acc_matrix,all_pascal,all_derivs,qpart_og,log_form)
 			ratio_wavefunc = exp(new_wavefunc - wavefunc_data[i])
@@ -86,9 +85,9 @@ function get_expval(vers,n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=fa
 
 		else
 			if vers == "CF"
-				new_wavefunc = get_wavefunc(local_config,n,p,qpart_data)
+				new_wavefunc = get_wavefunc(local_config,n,p,qpart_shifted)
 			elseif vers == "RFA"
-				new_wavefunc =  get_rf_wavefunc(local_config,acc_matrix,all_pascal,all_derivs,qpart_data,log_form)
+				new_wavefunc =  get_rf_wavefunc(local_config,acc_matrix,all_pascal,all_derivs,qpart_shifted,log_form)
 			end
 			ratio_wavefunc = new_wavefunc / wavefunc_data[i]
 			calced_vals[i] = imag(ratio_wavefunc)/dtheta
@@ -103,16 +102,16 @@ function get_expval(vers,n,p,hdf5_data,chosen_qpart,dtheta,samp_freq,log_form=fa
 	#end
 	
 	end
-	num_avgd = number_slices - length(findall(calced_vals.==0.0))
-	println("Averaged over $num_avgd Slices")
+	#num_avgd = number_slices - length(findall(calced_vals.==0.0))
+	#println("Averaged over $num_avgd Slices")
 	#
-	if num_avgd == number_slices
+	#if num_avgd == number_slices
 		final_val = mean(calced_vals)
 		val_error = std(calced_vals)
-	else
-		final_val = Inf
-		val_error = 0.0
-	end
+	#else
+	#	final_val = Inf
+	#	val_error = 0.0
+	#end
 	#
 	return final_val,val_error,calced_vals#,count_two,count_origin
 end
