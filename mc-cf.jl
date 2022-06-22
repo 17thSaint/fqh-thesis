@@ -1,9 +1,9 @@
 #import Pkg; Pkg.add("Statistics")
-using Statistics,PyPlot
+using Statistics,PyPlot,Dates
 
 include("cf-wavefunc.jl")
 include("write-accmat-hdf5.jl")
-#include("berry-cf.jl")
+include("berry-cf.jl")
 ARGS = "F"
 include("read-CF-data.jl")
 
@@ -71,7 +71,7 @@ function acc_rej_move(vers::String,config::Vector{ComplexF64},n::Int,p::Int,chos
 	return "Acceptance Calculation Error"
 end
 
-function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false,farm=0,allowed_sets_matrix = Matrix{Any}(undef,(0,0)),full_pasc_tri = Vector{Vector{Int}}(undef,0),full_derivs = Vector{Vector{Any}}(undef,0))
+function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_form=false,farm=0,wb=false,allowed_sets_matrix = Matrix{Any}(undef,(0,0)),full_pasc_tri = Vector{Vector{Int}}(undef,0),full_derivs = Vector{Vector{Any}}(undef,0))
 	#allowed_sets_matrix = Matrix{Vector{Int}}(undef,(0,0))
 	#full_pasc_tri = Vector{Vector{Int}}(undef,0)
 	#full_derivs = Vector{Vector{Any}}(undef,0)
@@ -81,8 +81,9 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	#	full_derivs = get_deriv_orders_matrix(num_parts)
 		#println("Made All Presets")
 	#end
-	println("Starting")
+	#println("Starting: Getting Config")
 	starting_check = true
+	starting_wavefunc = 0.0+im*0.0
 	low_vers = lowercase(vers)
 	running_config = start_rand_config(num_parts,n,p)
 	start_count = 0
@@ -92,6 +93,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	else
 		steps_per_file = Int(steps/output_file_count)
 	end
+	#println("Getting First Wavefunc Value")
 	while starting_check
 		start_count += 1
 		if vers == "CF"
@@ -101,17 +103,13 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		end
 		if isinf(real(starting_wavefunc))
 			running_config = start_rand_config(num_parts,n,p)
-			#println(running_config[1])
 		else
-			#println("Started in $start_count steps")
+			println("Started in $start_count steps")
 			starting_check = false
 		end
 	end
-	if vers == "RFA"
-		next_wavefunc = get_rf_wavefunc(running_config,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
-	else
-		next_wavefunc = get_wavefunc_fromlog(running_config,n,p,qpart)
-	end
+	#println("Found Starting Wavefunc")
+	next_wavefunc = starting_wavefunc + 0.1 - 0.1
 	if vers == "CF"
 		filling = n/(2*p*n+1)
 		denom = 2*p*n+1
@@ -126,12 +124,17 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 	wavefunc = 0.0+im*0.0
 	samp_freq = 1#Int(steps/samp_count)
 	acc_count = 0
-	therm_time = 10#50#Int(0.0001*steps)
+	therm_time = 0#50#Int(0.0001*steps)
 	collection_time = steps
 	time_config = fill(0.0+im*0.0,(num_parts,Int(collection_time/samp_freq)))
 	time_wavefunc = fill(0.0+im*0.0,(Int(collection_time/samp_freq)))
+	if wb
+		time_berry = fill(0.0,(Int(collection_time/samp_freq)))
+	end
 	index = 1
 	number = 0
+	#println("Starting Thermalization")
+	time_start = now()
 	for i_therm in 1:therm_time
 		#if i_therm%(therm_time*0.05) == 0
 		#	println("Thermalizing:"," ",100*i_therm/therm_time,"%")
@@ -147,10 +150,11 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 			end
 		end
 	end
-	println("Thermalization Done, Starting Data Collection")
+	#println("Thermalization Done, Starting Data Collection")
 	for i in 1:collection_time
 		
 		for j in 1:num_parts
+			#println("MC Sample $i, Particle $j")
 			movement = acc_rej_move(vers,running_config,n,p,j,step_size,next_wavefunc,allowed_sets_matrix,full_pasc_tri,full_derivs,qpart,log_form)
 			next_wavefunc = movement[4]
 			if movement[1]
@@ -166,39 +170,53 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],log_for
 		acc_rate = acc_count/(num_parts*i)
 		#
 		if i%samp_freq == 0
-			time_config[:,index] = [running_config[x] for x in 1:num_parts]
+			time_config[:,index] = [Complex(running_config[x]) for x in 1:num_parts]
+			local_config_time = time_config[:,index]
 			time_wavefunc[index] = wavefunc
+			if wb
+				time_berry[index] = get_expval(vers,n,p,[qpart,local_config_time,[wavefunc]],1,-0.001,1,log_form)[1]
+			end
 			index += 1
 			#println("Added Data for Sampling Frequency")
 		end
 		#
-		if i%(collection_time*0.1) == 0
-			println("Running $n/$denom:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
-		end
+		#if i%(collection_time*0.001) == 0
+		#	println("Running $n/$denom:"," ",100*i/collection_time,"%, Acc Rate: ",acc_count,"/",num_parts*i)
+		#end
 		#
 		if i%(samp_freq*steps_per_file) == 0
 			number += 1
-			data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
+			if wb
+				data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1],time_berry[index-steps_per_file:index-1]]
+			else
+				data = [time_config[:,index-steps_per_file:index-1],time_wavefunc[index-steps_per_file:index-1]]
+			end
 			folderhere = lowercase(vers)
-			focused_rad_count = 0 + rad_count
-			write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,focused_rad_count,number+farm*output_file_count,qpart,log_form)
+			focused_rad_count = 30 + rad_count
+			write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,focused_rad_count,number+farm*output_file_count,qpart,log_form,wb)
 			#write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
 		#
 	end
-
+	time_end = now()
+	total_time = (time_end - time_start).value
 	acc_rate = acc_count/(num_parts*steps)
-
-	return acc_rate,time_config,time_wavefunc
+	
+	if wb
+		return acc_rate,time_config,time_wavefunc,time_berry,total_time
+	else
+		return acc_rate,time_config,time_wavefunc,total_time
+	end
 end
 
-particles = 4
-cluster_types = [ ["CF",1],["CF",2,["CF",3],["RFA",1],["RFA",2,["RFA",3] ]
-flux_type = cluster_types[parse(Int64,ARGS[2])][1]
+particles = 8
+cluster_types = [ ["CF",1],["CF",2],["CF",3],["RFA",1],["RFA",2],["RFA",3] ]
+flux_type = "CF"#cluster_types[parse(Int64,ARGS[2])][1]
 which_np = 1
 log_form = true
+with_berry = true
 #
-mc_steps = 1000
+mc_steps = 100
 
 np_vals = [[1,1],[1,2],[2,1]]
 n,p = np_vals[which_np]
@@ -217,20 +235,45 @@ elseif flux_type == "CF"
 end
 rm = sqrt(2*particles/filling)
 step_size = rm/3.0#0.4 + 0.175*rm
-x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
-focused_x_rads = [x_rads[3] + j*(x_rads[4]-x_rads[3])/10 for j in 1:10]
-k = 4
-rad_choice = k
+big_x_rads = [0.01*rm + j*(1.29*rm)/10 for j in 0:9]
+starting_rad = 3
+x_rads = [big_x_rads[starting_rad] + j*(big_x_rads[starting_rad+1]-big_x_rads[starting_rad])/10 for j in 1:10]
+#
+berries = [0.0 for i in 1:10]
+berrors = [0.0 for i in 1:10]
+for rad_choice in 1:10
+#rad_choice = 4
 x_rad = x_rads[rad_choice]
-qpart_choices = [[0,[0.0]],[1,[x_rad+0.0*im]],[2,[x_rad+0.0*rm,-x_rad+im*0.0]]]
-qpart_selected = cluster_types[parse(Int64,ARGS[2])][2]
+x_rad_2 = 0.0#-x_rads[rad_choice]
+qpart_choices = [[0,[0.0]],[1,[x_rad+0.0*im]],[2,[x_rad+0.0*rm,x_rad_2+im*0.0]]]
+qpart_selected = 2#cluster_types[parse(Int64,ARGS[2])][2]
 qpart = qpart_choices[qpart_selected]
-rezz = main(flux_type,n,p,mc_steps,particles,step_size,rad_choice,qpart,log_form,0,allowed_sets_matrix,full_pasc_tri,full_derivs)
+rezz = main(flux_type,n,p,mc_steps,particles,step_size,rad_choice,qpart,log_form,0,with_berry,allowed_sets_matrix,full_pasc_tri,full_derivs)
+berries[rad_choice] = mean(rezz[4])
+berrors[rad_choice] = std(rezz[4])
+end
+#
 
 
-compl = collect(Iterators.flatten([rezz_cf[2][i,:] for i in 1:particles]))
+if true
 figure()
-hist2D(real.(compl),-imag.(compl),bins=50)
+errorbar(x_rads,-berries,yerr=[berrors,berrors],fmt="-o",label="1Q")
+plot(x_rads,(x_rads.^2).*(filling/4),label="TH")
+title("Full Berry Phase")
+end
+if false
+interaction_part = berries .+ (x_rads.^2).*(filling/2)
+figure()
+errorbar(x_rads,interaction_part,yerr=[berrors,berrors],fmt="-o",label="2Q")
+plot(x_rads,[filling for i in 1:10],label="TH")
+title("Statistics")
+legend()
+end
+
+
+#compl = collect(Iterators.flatten([rezz[2][i,:] for i in 1:particles]))
+#figure()
+#hist2D(real.(compl),-imag.(compl),bins=50)
 
 
 

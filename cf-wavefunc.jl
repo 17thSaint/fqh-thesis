@@ -567,11 +567,11 @@ function write_new_acc_matrix(num_parts::Int64,folder::String,column_bool=false,
 		end
 	end
 end
-#
+#=
 particles = parse(Int64,ARGS[1])
 i = parse(Int64,ARGS[2])
 write_new_acc_matrix(particles,"acc-matrix-data",true,i)
-#
+=#
 function get_nested_logadd(loop_level::Int64,all_vals::Vector{ComplexF64},result::ComplexF64)
 	if loop_level == 1
 		#println(result,", ",loop_level)
