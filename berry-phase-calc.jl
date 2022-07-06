@@ -2,7 +2,7 @@ using HDF5,PyPlot,Statistics
 #using CurveFit
 #using Profile
 
-function read_hdf5_data(num_parts,m,data_type,folder,version,qcount=1,q2loc=1)
+function read_hdf5_data(num_parts,m,data_type,folder,version,qcount=1,long=false,q2loc=1)
 	cd("..")
 	cd("$folder")
 	#file = h5open("acc-rate-data.hdf5","r")
@@ -19,8 +19,13 @@ function read_hdf5_data(num_parts,m,data_type,folder,version,qcount=1,q2loc=1)
 			else
 				data = [full_poses,qhole_data]
 			end
-		else
+		elseif !long
 			file = h5open("$data_type-pos-mc-2000000-p-$num_parts-m-$m-qhole-$qcount-q2loc-$q2loc-$version.hdf5","r")
+			qhole_data = [read(file["metadata"],"qhole_position_$i") for i in 1:qcount]
+			full_poses = read(file["all-data"],"deets")
+			data = [full_poses,qhole_data]
+		else
+			file = h5open("$data_type-pos-p-$num_parts-m-$m-qhole-long-$qcount-q2loc-$q2loc-$version.hdf5","r")
 			qhole_data = [read(file["metadata"],"qhole_position_$i") for i in 1:qcount]
 			full_poses = read(file["all-data"],"deets")
 			data = [full_poses,qhole_data]
@@ -68,6 +73,7 @@ function get_expval_stats(particles,full_data_x,full_data_y,dtheta,step,length_s
 	qhole_shifted = qhole_location*exp(im*dtheta)
 	start = Int((step-1)*length_step + 1)
 	ending = Int(step*length_step)
+    	#println(start,", ",ending)
 	sliced_data = [full_data_x[1][:,i] + im.*full_data_y[1][:,i] for i in start:ending]
 	exp_val = 0
 	distances = []
@@ -152,85 +158,93 @@ function get_phase_from_ideal_dtheta(xdata,ydata,berry_vals,thetas,m_final)
 	return phase,ideal_thets,params_a,params_b
 end
 
-function get_avg_berry_errors(xdata,ydata,steps,particles,m_final,slices=100)
-	
-end
-
 
 particles = 20
 steps = 1
-m = 3
-q_rad_count1 = 10
 q_rad_count = 9
 
-#=
-xdats1 = [[read_hdf5_data(particles,j,"x","qhole-data",i) for i in 2:q_rad_count1] for j in 3:2:7]
-ydats1 = [[read_hdf5_data(particles,j,"y","qhole-data",i) for i in 2:q_rad_count1] for j in 3:2:7]
-berries1 = get_calc_almost_berry(xdats1,ydats1,steps,particles,3,true)
 
-for sel in 1:3
-	fils = [3,5,7]
-	mmms = fils[sel]
-	radii = [0.0 for i in 1:9]
-	berry_phase = [0.0 for i in 1:9]
-	berry_error = [0.0 for i in 1:9]
-	for j in 1:q_rad_count1-1
-		radii[j] = xdats1[sel][j][2][1][1]
-		berry_phase[j] = berries1[1][sel][j][1]
-		berry_error[j] = berries1[2][sel][j][1]
-	end
-	println(berry_error)
-	plot(radii,berry_phase,"-p",label="M=$mmms")
-end
-
-
-for i in [3,5,7]
-	x = [j for j in 0:20]
-	plot(x,x.*x./(2 .*i),"k")
-end
-=#
-xdats = [[read_hdf5_data(particles,j,"x","qhole-data",i,2,1) for i in 1:q_rad_count] for j in 3:2:7]
-ydats = [[read_hdf5_data(particles,j,"y","qhole-data",i,2,1) for i in 1:q_rad_count] for j in 3:2:7]
-println("Read Data")
-
-berries = get_calc_almost_berry(xdats,ydats,steps,particles,3,true)
-
-for sel in 1:3
-	descr = [3,5,7]
-	lab = descr[sel]
-	radii = [0.0 for i in 1:q_rad_count]
-	berry_phase = [0.0 for i in 1:q_rad_count]
-	berry_error = [0.0 for i in 1:q_rad_count]
-	for j in 1:q_rad_count
-		radii[j] = xdats[sel][j][2][1][1]
-		berry_phase[j] = berries[1][sel][j][1]
-		berry_error[j] = berries1[2][sel][j][1]
-	end
-	println(berry_error)
-	plot(radii,berry_phase,"-p",label="M=$lab")
-end
-
-
+# single quasihole
+#xdats_1q = [[read_hdf5_data(particles,j,"x","qhole-data",i) for i in 2:q_rad_count+1] for j in 3:2:7]
+#ydats_1q = [[read_hdf5_data(particles,j,"y","qhole-data",i) for i in 2:q_rad_count+1] for j in 3:2:7]
 
 #=
-berry_phase_3 = [ berries1[1][1][j][1] for j in 1:q_rad_count]
-berry_phase_origin = [ berries[1][1][j][1] for j in 1:q_rad_count]
-
-radii_3 = [ xdats1[1][j][2][1][1] for j in 1:q_rad_count]
-radii_origin = [ xdats[1][j][2][1][1] for j in 1:q_rad_count]
-
-theory_3 = radii_3.*radii_3./(2 .*m)
-theory_origin = radii_origin.*radii_origin./(2 .*m)
-
-#plot(radii_3,theory_3,radii_origin,theory_origin)
-#plot(radii_3,berry_phase_3, radii_origin,berry_phase_origin)
-
-plot(radii_origin,(theory_origin-berry_phase_origin).^(-1),"-p")
-
-xlabel("Radius of Quasihole")
-#ylabel("Almost Berry Phase")
-#title("Berry Phase: Theory vs Simulation Calculated")
+j = 2
+comp_x_1q = collect(Iterators.flatten([xdats_1q[1][j][1][i,:] for i in 1:particles]))
+comp_y_1q = collect(Iterators.flatten([ydats_1q[1][j][1][i,:] for i in 1:particles]))
+figure()
+hist2D(comp_x_1q,-comp_y_1q,bins=40)
+colorbar()
 =#
+#=
+berries_1q = get_calc_almost_berry(xdats_1q,ydats_1q,steps,particles,3,true)
+berry_phase_1q = [ [berries_1q[1][i][j][1] for j in 1:q_rad_count] for i in 1:3]
+#berry_phase_1q_errors = [ [berries_1q[2][i][j][1] for j in 1:q_rad_count] for i in 1:3]
+radii_1q = [ [xdats_1q[i][j][2][1][1] for j in 1:q_rad_count] for i in 1:3]
+theory_1q = [radii_1q[i].*radii_1q[i]./(2 .*(i*2+1)) for i in 1:3]
+
+
+for i in 1:3
+	denom_filling = 2*i+1
+	plot(radii_1q[i],berry_phase_1q[i],"-p",label="1/$denom_filling")
+	if i == 3
+		plot(radii_1q[i],theory_1q[i],"-k",label="TH")
+	else
+		plot(radii_1q[i],theory_1q[i],"-k")
+	end
+end
+=#
+#plot(radii_1q[2],berry_phase_1q[2],"-p")
+#plot(radii_1q[2],theory_1q[2])
+
+#
+#= two quasiholes, radius to 1.5*rm
+xdats_2q = [[read_hdf5_data(particles,j,"x","qhole-data",i,2,false,1) for i in 1:q_rad_count] for j in 3:2:7]
+ydats_2q = [[read_hdf5_data(particles,j,"y","qhole-data",i,2,false,1) for i in 1:q_rad_count] for j in 3:2:7]
+berries_2q = get_calc_almost_berry(xdats_2q,ydats_2q,steps,particles,3,true)
+berry_phase_origin = [ [berries_2q[1][i][j][1] for j in 1:q_rad_count] for i in 1:3]
+berry_phase_origin_errors = [ [berries_2q[2][i][j][1] for j in 1:q_rad_count] for i in 1:3]
+radii_origin = [ [xdats_2q[i][j][2][1][1] for j in 1:q_rad_count] for i in 1:3]
+theory_origin = [radii_origin[i].*radii_origin[i]./(2 .*(i*2+1)) for i in 1:3]
+=#
+
+#= two quasiholes, more data, radius out to 1*rm
+xdats_2q_long = [[read_hdf5_data(particles,j,"x","qhole-data",i,2,true,1) for i in 1:q_rad_count] for j in 3:2:7]
+ydats_2q_long = [[read_hdf5_data(particles,j,"y","qhole-data",i,2,true,1) for i in 1:q_rad_count] for j in 3:2:7]
+berries_2q_long = get_calc_almost_berry(xdats_2q_long,ydats_2q_long,steps,particles,3,true)
+berry_phase_origin_long = [ [berries_2q_long[1][i][j][1] for j in 1:q_rad_count] for i in 1:3]
+berry_phase_origin_long_errors = [ [berries_2q_long[2][i][j][1] for j in 1:q_rad_count] for i in 1:3]
+radii_2q_long = [ [xdats_2q_long[i][j][2][1][1] for j in 1:q_rad_count] for i in 1:3]
+theory_2q_long = [radii_2q_long[i].*radii_2q_long[i]./(2 .*(i*2+1)) for i in 1:3]
+=#
+
+
+
+#
+for i in 1:1
+	ms = [3,5,7]
+	m_here = ms[i]
+	filling = 1/m_here
+	rm1 = sqrt(2*particles/filling)
+	#plot(radii_origin[i],berry_phase_origin[i],"-p",label="M=$m_here")
+	#plot(radii_1q[i],berry_phase_1q[i],"-p",label="M=$m_here")
+	errors = berry_phase_origin_long_errors[i]
+	calced_m = (theory_2q_long[i]-berry_phase_origin_long[i])#.^(-1)
+	#errors_m = ((theory_2q_long[i]-berry_phase_origin_long[i])+errors).^(-1) - calced_m 
+	#plot(radii_2q_long[i],berry_phase_origin_long[i],"-p",label="M=$m_here")
+	figure()
+	plot(radii_2q_long[i]./rm1,[1/m_here for i in 1:9],"-k",label="TH")
+	errorbar(radii_2q_long[i]./rm1,calced_m,yerr=errors,c="red",label="1/$m_here")
+	ylim((0.0,1.5))
+	legend(loc="upper left")
+	ylabel("Calculated Filling Factor")
+	xlabel("Radius of Quasihole / Rm")
+	title("Two QHs Berry Phase Interaction Term, N=20")
+end
+#
+#
+
+
 
 #phase_dats = get_phase_from_ideal_dtheta(xdats,ydats,berries[1],berries[2],1)
 #plot(phase_dats[1][1])
@@ -262,7 +276,7 @@ plot(1:3,th_vals,label="Theory")
 legend()
 =#
 
-
+#
 
 
 "fin"
