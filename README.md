@@ -82,18 +82,6 @@ Each column corresponds to a given particle, so the whole column is multiplied b
 
 The LLL projection operator sends all $\bar{z}$'s to derivatives, and within our description $\bar{z}$'s only occur either in $n = 2$ states or when there is a quasi-particle.  For an $n = 2$ state without any excitations, an element of the Slater matrix looks like
 
+adding picture here
 
-\[ S_{a,b} =     \begin{cases}
-        z_{b}^{a-1} J_{b}, &  a \leq \frac{N_e}{2} - 1 \\
-        \bar{z_{b}} z_{b}^{a-1} J_{b}, &  a > \frac{N_e}{2} - 1
-    \end{cases}
-    \quad
-    \xrightarrow{\text{$\mathcal{P}_{LLL}$}}
-    \quad
-    S_{a,b}^{P} =     \begin{cases}
-        z_{b}^{a-1} J_{b}, &  a \leq \frac{N_e}{2} - 1 \\
-        2(a-1) z_{b}^{a-2} J_{b} + 2 z_{b}^{a-1} \frac{\partial J_{b}}{\partial z_b}, &  a > \frac{N_e}{2} - 1
-    \end{cases}
-    \quad (7.2b)
-\]
 An exact calculation of the projected element numerically is possible just with knowledge of the particle configuration and the location of the element.  In this way, there is no issue with numerical precision apart from floating point limits of the machine.  When a quasi-particle is included, the same analytical procedure can be done where the only additional knowledge needed is where the quasi-particle is localized.  The full analytical calculation is even more messy than the $n = 2$ case and thus is not shown here.
