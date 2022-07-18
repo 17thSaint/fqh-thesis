@@ -41,3 +41,59 @@ $$\Psi_{\nu=\frac{1}{2p-1}}^{RFA} = P_{LLL} \prod_{i < j} (\bar{z}_i - \bar{z}_j
 
 ## Monte Carlo Simulation
 
+The algorithm used in this project to sample the fractional quantum Hall wavefunction is the Metropolis-Hastings Monte Carlo method.  The code was built using the Julia language from scratch.  The pseudo-code for the algorithm is below.
+
+#### (1) Start with particle configuration,
+
+#### (2) For each particle;
+
+(2a) Calculate probability of initial configuration, $P_{\textrm{initial}}$
+
+
+(2b) Propose a random move with maximum step size $d_{max}$,
+
+
+(2c) Calculate probability of new configuration, $P_{\textrm{proposed}}$
+
+
+(2d) Get a random number $u \in [0,1]$
+
+
+(2e) Calculate ratio $\alpha = P_{\textrm{proposed}}/P_{\textrm{initial}}$
+
+
+(2f) If $\alpha \geq u$, accept new configuration
+
+
+(2g) If $\alpha < u$, reject move and maintain initial configuration  
+
+#### (3) Continue for $n_{\textrm{max}}$ sample steps.
+
+The Metropolis-Hastings method is used because having the ratio, $\alpha$, be compared to a random number allows for moves that generate less likely configurations.  This prevents the system from getting stuck in local maximum regions.
+
+### Lowest Landau Level Projection
+In order to calculate the probability from a given wavefunction, the Slater matrix must be built and projected down to the LLL before the determinant can be taken.  Each element of the Slater matrix is composed of three parts: the integer filling orbital wavefunction, the Jastrow factor, and the excitation component.  Not every wavefunction has an excitation component so the last part is sometimes left out.  The Jastrow factor is the attachment of the $2p$ flux lines to each electron.  For particle $u$, the Jastrow factor and its derivative are 
+
+$$
+J_u = \prod_{i > u}^{N_e} (z_u - z_i)^{2p}, \quad \frac{\partial}{\partial z_u} J_{u} = 2 \sum_{j > u} (z_u - z_j)^{2p-1} \prod_{i > u, i \neq j} (z_u - z_i)^{2p},
+$$
+
+Each column corresponds to a given particle, so the whole column is multiplied by the corresponding Jastrow factor.  In this project, the only integer fillings used were $n = 1$ and $2$.  Therefore, any orbital wavefunction can be written as $\bar{z}^l z^m$, where $l = n - 1$.  The value $m$ corresponds to the angular momentum orbital and is used to determine which row of the Slater matrix the factor should be on.  The wavefunction for the excitation, either quasi-hole or quasi-particle, is dependent only on which particle it is interacting with.  Thus, to include a quasi-particle each element of the last row of the Slater matrix is replaced by the quasi-particle wavefunction as a function of the particle that corresponds to that element.  The last row is replaced because quasi-particles always sit in the next highest Landau level.  For a quasi-hole the same procedure is done but with the first row of the Slater matrix.
+
+The LLL projection operator sends all $\bar{z}$'s to derivatives, and within our description $\bar{z}$'s only occur either in $n = 2$ states or when there is a quasi-particle.  For an $n = 2$ state without any excitations, an element of the Slater matrix looks like
+
+
+\[ S_{a,b} =     \begin{cases}
+        z_{b}^{a-1} J_{b}, &  a \leq \frac{N_e}{2} - 1 \\
+        \bar{z_{b}} z_{b}^{a-1} J_{b}, &  a > \frac{N_e}{2} - 1
+    \end{cases}
+    \quad
+    \xrightarrow{\text{$\mathcal{P}_{LLL}$}}
+    \quad
+    S_{a,b}^{P} =     \begin{cases}
+        z_{b}^{a-1} J_{b}, &  a \leq \frac{N_e}{2} - 1 \\
+        2(a-1) z_{b}^{a-2} J_{b} + 2 z_{b}^{a-1} \frac{\partial J_{b}}{\partial z_b}, &  a > \frac{N_e}{2} - 1
+    \end{cases}
+    \quad (7.2b)
+\]
+An exact calculation of the projected element numerically is possible just with knowledge of the particle configuration and the location of the element.  In this way, there is no issue with numerical precision apart from floating point limits of the machine.  When a quasi-particle is included, the same analytical procedure can be done where the only additional knowledge needed is where the quasi-particle is localized.  The full analytical calculation is even more messy than the $n = 2$ case and thus is not shown here.
