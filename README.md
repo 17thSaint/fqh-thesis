@@ -82,14 +82,18 @@ Each column corresponds to a given particle, so the whole column is multiplied b
 
 The LLL projection operator sends all $\bar{z}$'s to derivatives, and within our description $\bar{z}$'s only occur either in $n = 2$ states or when there is a quasi-particle.  For an $n = 2$ state without any excitations, an element of the Slater matrix looks like
 
-adding picture here
+<p align="center">
+  <img src="figures-git/proj-equations.png" width="400">
+</p>
 
 An exact calculation of the projected element numerically is possible just with knowledge of the particle configuration and the location of the element.  In this way, there is no issue with numerical precision apart from floating point limits of the machine.  When a quasi-particle is included, the same analytical procedure can be done where the only additional knowledge needed is where the quasi-particle is localized.  The full analytical calculation is even more messy than the $n = 2$ case and thus is not shown here.
 
 ### Reverse Flux Attachment
 For reverse flux attachment, the procedure is significantly more complicated because there is a product of $N_e$ derivatives which all require chain rule.  The wavefunction for a filling of $\nu = 1/3$ without the Gaussian component is given by
 
-another picture
+<p align="center">
+  <img src="figures-git/slater-det-rfa-equation.png" width="400">
+</p>
 
 A given element of the full Slater matrix whose determinant defines the wavefunction can be written as $S_{a,b} = \bar{z_{b}}^{a-1} J_{b}^{2}$, where $J_b$ is the same Jastrow factor as Equation \ref{eq:jastrow} for $p = 1$.  In order to get an exact value for each element, we need to be able to take a derivative of any order of the Jastrow factor.  To deal with the power of two, we separate the term into $J_{b}^{(1)}$ and $J_{b}^{(2)}$.  When taking derivatives of two functions multiplied by each other, the coefficients in front of each term come from Pascal's triangle where the row corresponds to the order of the derivative.  Because the two terms are equal, the ending coefficients can be found by folding Pascal's triangle along the vertical axis and summing the overlapping values.
 
