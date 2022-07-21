@@ -152,13 +152,10 @@ end
 mcs = 100000
 particles = 3
 step_size = 0.5
-#=
-rezz = []
 Threads.@threads for i in 1:3
 	results = main(mcs,particles,i,step_size,0.0)
-	append!(rezz,results)
+	# write results to hdf5
 end
-=#
 
 
 # single set 30 seconds, 3 sets in 1 minute

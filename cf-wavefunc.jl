@@ -437,7 +437,7 @@ function get_log_det(matrix::Matrix{ComplexF64},reg_input=false)
 end
 
 
-function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
+function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]],qhole=[0,[0]])
 	num_parts = length(config)
 	log_matrix = fill(0.0+im*0.0,(num_parts,num_parts))
 	log_matrix_sepJi = fill(0.0+im*0.0,(num_parts,num_parts))
@@ -450,6 +450,7 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 			#	break
 			end
 			log_matrix[i,j] = data_here[1]
+			
 		end
 	end
 	
@@ -457,6 +458,9 @@ function get_wavefunc_fromlog(config,n,p,qpart=[0,[0]])
 	
 	for i in 1:num_parts
 		result += -abs2(config[i])/4
+		for j in 1:qhole[1]
+			result += log(config[i] - qhole[2][j])
+		end
 	end
 	
 	return result#,log_matrix
