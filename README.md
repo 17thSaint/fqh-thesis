@@ -6,12 +6,12 @@ Here, I present the results of my Master's degree thesis research project.  The 
 
 ## Hall System
 <p align="center">
-  <img src="repogit-figures/hall-system.png" width="400">
+  <img src="figures-git/hall-system.png" width="400">
 </p>
 The Hall system begins with electrons flowing across a finite, two dimensional surface generating a current, I, as seen in the figure above.  A magnetic field that points perpendicular to the surface is turned on, causing the electrons to experience a Lorentz force given by $\vec{F} = -e \vec{v} \times \vec{B}$.  The Lorentz force causes the path of an electron to curve downwards and stop at the lower edge of the surface.  As electrons continue to flow, more and more build up on the lower edge creating a voltage difference across the top and bottom edges of the surface: the Hall voltage.  With a voltage and a constant current, the associated resistance can be found as well using V = IR.
 
 <p align="center">
-  <img src="repogit-figures/hall-exp-results.png" width="400">
+  <img src="figures-git/hall-exp-results.png" width="400">
 </p>
 
 For small magnetic fields, the transverse Hall resistivity, $\rho_{xy}$ , increases linearly with the magnetic field.  However, because of quantum effects, at larger magnetic fields, plateaus begin to appear in the resistivity at specific field strengths.  These values of the magnetic field correspond to precise integer or fractional fillings of Landau levels by the electrons in the system: the integer or fractional quantum Hall effect.
