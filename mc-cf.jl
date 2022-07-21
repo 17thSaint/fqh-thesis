@@ -4,7 +4,7 @@ using Statistics,Dates
 include("cf-wavefunc.jl")
 include("write-accmat-hdf5.jl")
 include("berry-cf.jl")
-ARGS = "F"
+#ARGS = "F"
 include("read-CF-data.jl")
 
 function move_particle(num_parts::Int,chosen::Int,step_size::Float64)
@@ -200,7 +200,7 @@ function main(vers,n,p,steps,num_parts,step_size,rad_count,qpart=[0,[0]],qhole=[
 			end
 			folderhere = lowercase(vers)
 			focused_rad_count = 0 + rad_count
-			write_pos_data_hdf5("$folderhere-data",vers,steps,num_parts,n,p,data,focused_rad_count,number+farm*output_file_count,qpart,log_form,wb)
+			write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,focused_rad_count,number+farm*output_file_count,qpart,log_form,wb) #$folderhere-data
 			#write_pos_data_hdf5("NA",vers,steps,num_parts,n,p,data,rad_count,number,qpart,log_form)
 		end
 		#

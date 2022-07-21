@@ -401,7 +401,9 @@ function combine_CF_data(all_data)
 	end
 	for i in 1:length(result_wavefunc_data)
 		result_wavefunc_data[i] = full_wavefunc_data[i]
-		result_berry_data[i] = full_berry_data[i]
+		if wb
+			result_berry_data[i] = full_berry_data[i]
+		end
 	end
 	if wb
 		full_data = [qpart_data,full_pos_data,result_wavefunc_data,result_berry_data]
@@ -424,16 +426,16 @@ make_new = main(ARGS[1])
 if make_new
 	println("Combining Stuff")
 	log_form_comb = true
-	berry_comb = true
-	particles_comb = 20
+	berry_comb = false
+	particles_comb = 22
 	vers_comb = "CF"
 	low_vers_comb = lowercase(vers_comb)
 	np_vals_comb = [[1,1],[1,2],[2,1]]
 	for k in 1:1
 		n_comb,p_comb = np_vals_comb[k]
-		for j in 1:1
+		for j in 2:2
 			qpart_count_comb = j
-			for i in [4]
+			for i in [1]
 				rad_choice_comb = i
 				alldats_comb = find_CF_data("$low_vers_comb-data",vers_comb,particles_comb,n_comb,p_comb,rad_choice_comb,qpart_count_comb,log_form_comb,berry_comb)
 				if alldats_comb[2]
